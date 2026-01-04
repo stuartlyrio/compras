@@ -80,7 +80,6 @@ function initializeRoomData(room) {
 function renderSectionNav() {
     const nav = document.getElementById('section-nav');
     nav.innerHTML = '';
-    
     sections.forEach(sec => {
         const btn = document.createElement('div');
         btn.className = 'section-tab';
@@ -95,17 +94,15 @@ function switchSection(sectionId) {
     currentSectionId = sectionId;
     renderSectionNav();
     
-    const summaryBar = document.getElementById('section-summary-bar');
-    summaryBar.style.display = 'flex';
+    document.getElementById('section-summary-bar').style.display = 'flex';
     document.getElementById('room-area-wrapper').style.display = 'block';
     
     const currentSec = sections.find(s => s.id === sectionId);
     document.getElementById('current-section-name-display').innerText = currentSec ? currentSec.name : '';
 
     renderRoomsNav();
-    updateAllTotals(); // Atualiza os números da seção atual
+    updateAllTotals();
     
-    // Seleciona o primeiro quarto se houver
     if(currentSec && currentSec.rooms.length > 0) {
         switchRoom(currentSec.rooms[0].id);
     } else {
@@ -127,7 +124,7 @@ function addNewSection() {
 
 function deleteCurrentSection() {
     if(!currentSectionId) return;
-    if(!confirm("Tem certeza que deseja apagar esta seção inteira e todos os seus itens?")) return;
+    if(!confirm("Tem certeza que deseja apagar esta seção inteira?")) return;
     
     const sec = sections.find(s => s.id === currentSectionId);
     sec.rooms.forEach(r => {
@@ -148,13 +145,11 @@ function deleteCurrentSection() {
     updateAllTotals();
 }
 
-
 // --- Gerenciamento de Cômodos ---
 
 function renderRoomsNav() {
     const nav = document.getElementById('room-nav');
     nav.innerHTML = '';
-    
     const currentSec = sections.find(s => s.id === currentSectionId);
     if(!currentSec) return;
 
@@ -170,44 +165,34 @@ function renderRoomsNav() {
 
 function addNewRoom() {
     if(!currentSectionId) return;
-    
     const input = document.getElementById('new-room-name');
     const name = input.value.trim();
     if(!name) { alert("Nome do cômodo?"); return; }
 
     const id = name.toLowerCase().replace(/[^a-z0-9]/g, '') + '-' + Date.now().toString().slice(-4);
-    
     const currentSec = sections.find(s => s.id === currentSectionId);
     currentSec.rooms.push({ id, name });
     
     initializeRoomData({ id, name });
-    
     input.value = '';
     renderRoomsNav();
     switchRoom(id);
-    updateAllTotals(); // Atualiza a contagem da seção
+    updateAllTotals();
 }
 
 function deleteRoom(roomId) {
     if(!confirm("Excluir este cômodo?")) return;
-    
     const currentSec = sections.find(s => s.id === currentSectionId);
     currentSec.rooms = currentSec.rooms.filter(r => r.id !== roomId);
-    
     delete houseData[roomId];
     delete checklistData[roomId];
-    
     renderRoomsNav();
-    
-    if(currentSec.rooms.length > 0) {
-        switchRoom(currentSec.rooms[0].id);
-    } else {
-        document.getElementById('main-container').innerHTML = '';
-    }
+    if(currentSec.rooms.length > 0) switchRoom(currentSec.rooms[0].id);
+    else document.getElementById('main-container').innerHTML = '';
     updateAllTotals();
 }
 
-// --- Renderização do Conteúdo do Cômodo ---
+// --- Renderização ---
 
 function switchRoom(roomId) {
     document.querySelectorAll('.room-btn').forEach(btn => btn.classList.remove('active'));
@@ -251,7 +236,7 @@ function renderColumnHTML(roomId, category, title) {
         <div class="column">
             <h3>${title}</h3>
             <div class="checklist-area">
-                <div class="checklist-title">Falta Comprar:</div>
+                <div class="checklist-title">Falta Comprar (da Lista Padrão):</div>
                 <div class="checklist-items" id="check-${roomId}-${category}"></div>
                 <div class="add-checklist-wrapper">
                     <input type="text" id="new-check-${roomId}-${category}" placeholder="+ Item Checklist">
@@ -265,14 +250,108 @@ function renderColumnHTML(roomId, category, title) {
                 <input type="text" id="input-${roomId}-${category}-link" placeholder="Link">
                 <label style="font-size:0.8rem">Foto:</label>
                 <input type="file" id="input-${roomId}-${category}-img" accept="image/*">
-                <button class="add-btn" onclick="addItem('${roomId}', '${category}')">Adicionar</button>
+                <button class="add-btn" onclick="addItem('${roomId}', '${category}')">Adicionar à Lista</button>
             </div>
             <ul class="item-list" id="list-${roomId}-${category}"></ul>
         </div>
     `;
 }
 
-// --- Funções de Itens ---
+// --- Funções Principais de Itens ---
+
+function addItem(roomId, category) {
+    const name = document.getElementById(`input-${roomId}-${category}-name`).value.trim();
+    const price = parseFloat(document.getElementById(`input-${roomId}-${category}-price`).value);
+    const desc = document.getElementById(`input-${roomId}-${category}-desc`).value;
+    const link = document.getElementById(`input-${roomId}-${category}-link`).value;
+    const file = document.getElementById(`input-${roomId}-${category}-img`).files[0];
+
+    if(!name || isNaN(price)) { alert("Nome e preço obrigatórios."); return; }
+
+    const save = (img) => {
+        // Status 'pending' por padrão
+        houseData[roomId][category].push({ 
+            id: Date.now(), 
+            name, 
+            price, 
+            desc, 
+            link, 
+            img, 
+            status: 'pending' 
+        });
+
+        document.getElementById(`input-${roomId}-${category}-name`).value = '';
+        document.getElementById(`input-${roomId}-${category}-price`).value = '';
+        document.getElementById(`input-${roomId}-${category}-desc`).value = '';
+        document.getElementById(`input-${roomId}-${category}-link`).value = '';
+        document.getElementById(`input-${roomId}-${category}-img`).value = '';
+        
+        renderLists(roomId, category);
+        renderChecklist(roomId, category);
+        updateRoomTotals(roomId);
+        updateAllTotals();
+    };
+
+    if(file) {
+        const reader = new FileReader();
+        reader.onload = e => save(e.target.result);
+        reader.readAsDataURL(file);
+    } else {
+        save('https://via.placeholder.com/60?text=Foto');
+    }
+}
+
+function toggleItemStatus(roomId, category, itemId) {
+    const item = houseData[roomId][category].find(i => i.id === itemId);
+    if(item) {
+        item.status = (item.status === 'bought') ? 'pending' : 'bought';
+        renderLists(roomId, category);
+    }
+}
+
+function removeItem(roomId, category, id) {
+    houseData[roomId][category] = houseData[roomId][category].filter(i => i.id !== id);
+    renderLists(roomId, category);
+    renderChecklist(roomId, category);
+    updateRoomTotals(roomId);
+    updateAllTotals();
+}
+
+// --- Renderização da Lista (Com o novo botão) ---
+
+function renderLists(roomId, category) {
+    const ul = document.getElementById(`list-${roomId}-${category}`);
+    ul.innerHTML = '';
+    
+    houseData[roomId][category].forEach(item => {
+        const li = document.createElement('li');
+        const isBought = item.status === 'bought';
+        
+        li.className = `item-card`;
+        
+        li.innerHTML = `
+            <img src="${item.img}" class="item-img">
+            <div class="item-info">
+                <span class="item-name">${item.name}</span>
+                <span class="item-price">${formatCurrency(item.price)}</span>
+                ${item.desc ? `<span class="item-desc">${item.desc}</span>` : ''}
+                ${item.link ? `<a href="${item.link}" target="_blank" class="item-link">Ver Link</a>` : ''}
+                
+                <label class="status-switch">
+                    <input type="checkbox" ${isBought ? 'checked' : ''} onchange="toggleItemStatus('${roomId}', '${category}', ${item.id})">
+                    <span class="slider">
+                        <span class="status-label label-comprado">COMPRADO</span>
+                        <span class="status-label label-pendente">PENDENTE</span>
+                    </span>
+                </label>
+            </div>
+            <button class="delete-btn" onclick="removeItem('${roomId}','${category}',${item.id})"><i class="fas fa-trash"></i></button>
+        `;
+        ul.appendChild(li);
+    });
+}
+
+// --- Checklist Logic ---
 
 function renderChecklist(roomId, category) {
     if(!checklistData[roomId]) return;
@@ -314,67 +393,7 @@ function fillForm(roomId, category, name) {
     document.getElementById(`input-${roomId}-${category}-price`).focus();
 }
 
-function addItem(roomId, category) {
-    const name = document.getElementById(`input-${roomId}-${category}-name`).value.trim();
-    const price = parseFloat(document.getElementById(`input-${roomId}-${category}-price`).value);
-    const desc = document.getElementById(`input-${roomId}-${category}-desc`).value;
-    const link = document.getElementById(`input-${roomId}-${category}-link`).value;
-    const file = document.getElementById(`input-${roomId}-${category}-img`).files[0];
-
-    if(!name || isNaN(price)) { alert("Nome e preço obrigatórios."); return; }
-
-    const save = (img) => {
-        houseData[roomId][category].push({ id: Date.now(), name, price, desc, link, img });
-        document.getElementById(`input-${roomId}-${category}-name`).value = '';
-        document.getElementById(`input-${roomId}-${category}-price`).value = '';
-        document.getElementById(`input-${roomId}-${category}-desc`).value = '';
-        document.getElementById(`input-${roomId}-${category}-link`).value = '';
-        document.getElementById(`input-${roomId}-${category}-img`).value = '';
-        
-        renderLists(roomId, category);
-        renderChecklist(roomId, category);
-        updateRoomTotals(roomId);
-        updateAllTotals();
-    };
-
-    if(file) {
-        const reader = new FileReader();
-        reader.onload = e => save(e.target.result);
-        reader.readAsDataURL(file);
-    } else {
-        save('https://via.placeholder.com/60?text=Foto');
-    }
-}
-
-function removeItem(roomId, category, id) {
-    houseData[roomId][category] = houseData[roomId][category].filter(i => i.id !== id);
-    renderLists(roomId, category);
-    renderChecklist(roomId, category);
-    updateRoomTotals(roomId);
-    updateAllTotals();
-}
-
-function renderLists(roomId, category) {
-    const ul = document.getElementById(`list-${roomId}-${category}`);
-    ul.innerHTML = '';
-    houseData[roomId][category].forEach(item => {
-        const li = document.createElement('li');
-        li.className = 'item-card';
-        li.innerHTML = `
-            <img src="${item.img}" class="item-img">
-            <div class="item-info">
-                <span class="item-name">${item.name}</span>
-                <span class="item-price">${formatCurrency(item.price)}</span>
-                ${item.desc ? `<span class="item-desc">${item.desc}</span>` : ''}
-                ${item.link ? `<a href="${item.link}" target="_blank" class="item-link">Ver Link</a>` : ''}
-            </div>
-            <button class="delete-btn" onclick="removeItem('${roomId}','${category}',${item.id})"><i class="fas fa-trash"></i></button>
-        `;
-        ul.appendChild(li);
-    });
-}
-
-// --- TOTAIS (GLOBAL E SEÇÃO) ---
+// --- Totais ---
 
 function updateRoomTotals(roomId) {
     if(!houseData[roomId]) return;
@@ -394,7 +413,6 @@ function updateRoomTotals(roomId) {
 function updateAllTotals() {
     let globalEss=0, globalCom=0, globalDes=0;
     
-    // Cálculo Global
     sections.forEach(sec => {
         sec.rooms.forEach(room => {
             if(houseData[room.id]) {
@@ -405,13 +423,11 @@ function updateAllTotals() {
         });
     });
 
-    // Atualiza Labels Globais
     document.getElementById('global-essential').innerText = formatCurrency(globalEss);
     document.getElementById('global-common').innerText = formatCurrency(globalCom);
     document.getElementById('global-desejado').innerText = formatCurrency(globalDes);
     document.getElementById('global-combined').innerText = formatCurrency(globalEss+globalCom+globalDes);
 
-    // --- CÁLCULO DA SEÇÃO ATUAL (NOVO) ---
     if(currentSectionId) {
         const currentSec = sections.find(s => s.id === currentSectionId);
         if(currentSec) {
@@ -423,7 +439,6 @@ function updateAllTotals() {
                     secDes += houseData[room.id].desejado.reduce((a,b)=>a+b.price,0);
                 }
             });
-            // Atualiza Labels da Seção
             document.getElementById('sec-total-essencial').innerText = formatCurrency(secEss);
             document.getElementById('sec-total-comum').innerText = formatCurrency(secCom);
             document.getElementById('sec-total-desejado').innerText = formatCurrency(secDes);

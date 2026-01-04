@@ -7,121 +7,63 @@
     --accent-dark: #5ba4cf;
     --section-tab-bg: #e0f2f1;
     --section-active: #00838f;
-    --section-highlight: #006064; /* Tom mais escuro para totais da seção */
-    --success-color: #81c784;
-    --danger-color: #ef5350;
+    --section-highlight: #006064;
+    --success-color: #4CAF50; /* Verde mais vibrante */
+    --pending-color: #f44336; /* Vermelho mais vibrante */
     --border-color: #e0e0e0;
 }
 
 * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
 body { background-color: var(--bg-color); color: var(--text-main); padding-bottom: 50px; }
 
-/* Header */
-header {
-    background-color: var(--card-bg); padding: 20px; border-bottom: 3px solid var(--accent-color);
-    position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-}
+/* Header e Layouts Gerais */
+header { background-color: var(--card-bg); padding: 20px; border-bottom: 3px solid var(--accent-color); position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
 h1 { text-align: center; margin-bottom: 15px; color: var(--text-main); }
-
-.global-totals {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; max-width: 1000px; margin: 0 auto; text-align: center; font-size: 0.9rem;
-}
+.global-totals { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; max-width: 1000px; margin: 0 auto; text-align: center; font-size: 0.9rem; }
 .total-box { background-color: var(--bg-color); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); }
 .total-box span { display: block; font-weight: bold; font-size: 1.1rem; color: var(--text-main); }
 .total-box strong { color: var(--text-secondary); font-size: 0.8rem; text-transform: uppercase; }
 .total-main { border-color: var(--accent-color); background-color: #eaf6fc; }
 .total-main span { color: var(--accent-dark); }
 
-/* --- CONTROLE DE SEÇÕES --- */
-.section-area {
-    background-color: #fff; padding: 15px 0 0; border-bottom: 1px solid #ccc; margin-bottom: 20px;
-}
+/* Seções */
+.section-area { background-color: #fff; padding: 15px 0 0; border-bottom: 1px solid #ccc; margin-bottom: 20px; }
 .section-controls { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; padding: 0 15px; }
 .section-controls input { padding: 8px; border-radius: 5px; border: 1px solid #ccc; width: 300px; }
 .section-controls button { background-color: var(--text-main); color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
-
 .section-nav { display: flex; justify-content: center; gap: 5px; padding: 0 15px; }
-.section-tab {
-    padding: 10px 25px; background-color: #eee; border-radius: 10px 10px 0 0; cursor: pointer;
-    font-weight: bold; color: #555; border: 1px solid #ccc; border-bottom: none; transition: all 0.2s;
-}
-.section-tab.active {
-    background-color: var(--section-active); color: white; border-color: var(--section-active);
-}
+.section-tab { padding: 10px 25px; background-color: #eee; border-radius: 10px 10px 0 0; cursor: pointer; font-weight: bold; color: #555; border: 1px solid #ccc; border-bottom: none; transition: all 0.2s; }
+.section-tab.active { background-color: var(--section-active); color: white; border-color: var(--section-active); }
 .section-tab:hover:not(.active) { background-color: #ddd; }
-
-/* NOVO: Barra de Totais da Seção */
-.section-summary-bar {
-    background-color: var(--section-tab-bg);
-    border-top: 4px solid var(--section-active);
-    padding: 15px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 15px;
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-}
-
+.section-summary-bar { background-color: var(--section-tab-bg); border-top: 4px solid var(--section-active); padding: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
 .sec-total-label { font-size: 1.2rem; color: var(--section-highlight); font-weight: bold; }
 .sec-total-values { display: flex; gap: 20px; font-size: 0.95rem; align-items: center; }
-.sec-total-values b { color: #333; }
-.sec-total-final { 
-    background-color: var(--section-active); 
-    color: white; 
-    padding: 5px 15px; 
-    border-radius: 20px; 
-    font-weight: normal;
-}
-.sec-total-final b { color: white; margin-left: 5px; font-size: 1.1rem; }
+.sec-total-final { background-color: var(--section-active); color: white; padding: 5px 15px; border-radius: 20px; font-weight: normal; }
 
-/* --- CONTROLE DE CÔMODOS --- */
-.room-controls {
-    display: flex; justify-content: center; align-items: center; gap: 10px; margin: 20px auto 10px; max-width: 800px; padding: 0 15px;
-    background: #f4f6f8; padding: 10px; border-radius: 20px; border: 1px solid #e0e0e0;
-}
+/* Cômodos */
+.room-controls { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 20px auto 10px; max-width: 800px; padding: 0 15px; background: #f4f6f8; padding: 10px; border-radius: 20px; border: 1px solid #e0e0e0; }
 .control-label { font-weight: bold; color: #666; font-size: 0.9rem; margin-right: 5px; }
 .room-controls input { padding: 8px; border-radius: 20px; border: 1px solid #ccc; flex-grow: 1; outline: none; }
-.room-controls button { background-color: var(--success-color); color: white; border: none; padding: 8px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
-.delete-section-btn { background-color: var(--danger-color) !important; font-size: 0.8rem; }
-
-/* Navegação e Conteúdo */
+.room-controls button { background-color: #81c784; color: white; border: none; padding: 8px 20px; border-radius: 20px; cursor: pointer; font-weight: bold; }
+.delete-section-btn { background-color: #ef5350 !important; font-size: 0.8rem; }
 .room-nav { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin: 10px 0 20px; padding: 0 10px; }
-.room-btn {
-    background-color: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 15px; cursor: pointer; border-radius: 20px; transition: all 0.3s; font-size: 0.9rem;
-}
+.room-btn { background-color: var(--card-bg); border: 1px solid var(--border-color); padding: 8px 15px; cursor: pointer; border-radius: 20px; transition: all 0.3s; font-size: 0.9rem; }
 .room-btn.active { background-color: var(--accent-dark); color: white; border-color: var(--accent-dark); font-weight: bold; }
 .room-btn:hover:not(.active) { background-color: #e6e6e6; }
-
 .container { max-width: 1400px; margin: 0 auto; padding: 0 15px; }
 .room-section { display: none; animation: fadeIn 0.5s; }
 .room-section.active { display: block; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-.room-header {
-    display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
-    background: white; padding: 15px; border-radius: 8px; border-left: 5px solid var(--accent-color);
-}
-.delete-room-btn {
-    background: none; border: 1px solid var(--danger-color); color: var(--danger-color); 
-    padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8rem; margin-left: 15px;
-}
-.delete-room-btn:hover { background: var(--danger-color); color: white; }
+.room-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: white; padding: 15px; border-radius: 8px; border-left: 5px solid var(--accent-color); }
+.delete-room-btn { background: none; border: 1px solid #ef5350; color: #ef5350; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8rem; margin-left: 15px; }
+.delete-room-btn:hover { background: #ef5350; color: white; }
 .room-stats { display: flex; gap: 15px; font-size: 0.9rem; }
-
-/* Media Queries */
-@media (max-width: 1024px) {
-    .columns-wrapper { grid-template-columns: 1fr; }
-    .global-totals { grid-template-columns: 1fr 1fr; }
-    .room-header, .room-stats, .section-controls, .section-summary-bar { flex-direction: column; text-align: center; gap: 10px; }
-    .sec-total-values { flex-direction: column; gap: 5px; }
-}
-
-/* Colunas, Forms e Listas (Inalterado) */
+@media (max-width: 1024px) { .columns-wrapper { grid-template-columns: 1fr; } .global-totals { grid-template-columns: 1fr 1fr; } .room-header, .room-stats, .section-controls, .section-summary-bar { flex-direction: column; text-align: center; gap: 10px; } }
 .columns-wrapper { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
 .column { background: var(--card-bg); padding: 15px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); display: flex; flex-direction: column; }
 .column h3 { border-bottom: 2px solid var(--bg-color); padding-bottom: 10px; margin-bottom: 15px; text-transform: uppercase; font-size: 0.95rem; color: var(--accent-dark); text-align: center; }
 
+/* Checklist e Forms */
 .checklist-area { background-color: #fcfcfc; border: 1px dashed #ccc; padding: 10px; border-radius: 8px; margin-bottom: 15px; }
 .checklist-title { font-size: 0.8rem; font-weight: bold; color: #888; margin-bottom: 8px; display: flex; justify-content: space-between; }
 .checklist-items { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -132,19 +74,117 @@ h1 { text-align: center; margin-bottom: 15px; color: var(--text-main); }
 .add-checklist-wrapper { margin-top: 10px; display: flex; gap: 5px; }
 .add-checklist-wrapper input { flex-grow: 1; padding: 4px; font-size: 0.8rem; border: 1px solid #ddd; border-radius: 4px; }
 .add-checklist-wrapper button { padding: 4px 8px; background: #ddd; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
-
 .add-form { background-color: var(--bg-color); padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid var(--accent-color); }
 .add-form input, .add-form select, .add-form textarea { width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid #ccc; border-radius: 4px; }
 .add-form textarea { resize: vertical; height: 60px; font-family: inherit; }
 .add-form input[type="file"] { background: white; padding: 5px; font-size: 0.9rem; }
 .add-btn { width: 100%; background-color: var(--text-main); color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; font-weight: bold; }
 .add-btn:hover { background-color: black; }
+
+/* LISTA DE ITENS */
 .item-list { list-style: none; flex-grow: 1; }
-.item-card { display: flex; gap: 10px; border: 1px solid var(--border-color); padding: 10px; margin-bottom: 10px; border-radius: 6px; background: white; position: relative; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.item-card {
+    display: flex; gap: 10px; border: 1px solid var(--border-color); padding: 10px; margin-bottom: 10px;
+    border-radius: 6px; background: white; position: relative; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    transition: all 0.3s;
+}
 .item-img { width: 60px; height: 60px; background-color: #eee; object-fit: cover; border-radius: 4px; }
 .item-info { flex-grow: 1; min-width: 0; }
 .item-name { font-weight: bold; display: block; font-size: 0.95rem; }
-.item-price { color: var(--success-color); font-weight: bold; }
+.item-price { color: #333; font-weight: bold; }
 .item-desc { display: block; font-size: 0.85rem; color: #666; margin-top: 3px; font-style: italic; white-space: pre-wrap; }
 .item-link { font-size: 0.8rem; color: #666; text-decoration: underline; margin-top: 5px; display: inline-block;}
 .delete-btn { position: absolute; top: 5px; right: 5px; background: #ffcccc; color: #cc0000; border: none; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+
+/* --- NOVO DESIGN DO BOTÃO CILINDRICO --- */
+
+.status-switch {
+    position: relative;
+    display: inline-block;
+    width: 140px; /* Largura para caber o texto */
+    height: 34px;
+    margin-top: 8px;
+}
+
+.status-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: var(--pending-color); /* Vermelho por padrão */
+    transition: .4s;
+    border-radius: 34px; /* Cilindro */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 5px;
+}
+
+/* A bolinha (circulo branco) */
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+    z-index: 2;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Estado Comprado (Verde) */
+input:checked + .slider {
+    background-color: var(--success-color);
+}
+
+/* Movimento da bolinha */
+input:checked + .slider:before {
+    /* 140px width - 26px circle - 4px padding - 4px padding = ~106px de deslocamento */
+    transform: translateX(106px); 
+}
+
+/* Textos dentro do botão */
+.status-label {
+    color: white;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    z-index: 1;
+    user-select: none;
+    width: 100%;
+    text-align: center;
+    position: absolute;
+    line-height: 34px;
+    top: 0;
+}
+
+/* Texto PENDENTE (aparece na direita quando unchecked) */
+.label-pendente {
+    right: 15px;
+    text-align: right;
+    display: block;
+}
+
+/* Texto COMPRADO (aparece na esquerda quando checked) */
+.label-comprado {
+    left: 15px;
+    text-align: left;
+    display: none;
+}
+
+/* Controle de visibilidade dos textos */
+input:checked + .slider .label-pendente {
+    display: none;
+}
+
+input:checked + .slider .label-comprado {
+    display: block;
+}
