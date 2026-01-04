@@ -8,37 +8,60 @@
     --text-muted: #888888;
     
     --accent-color: #60d4ea;     /* Ciano */
-    --accent-glow: rgba(96, 212, 234, 0.2);
+    --accent-glow: rgba(96, 212, 234, 0.4);
 
-    --success-color: #60d4ea;    /* Pago/Comprado */
-    --pending-color: #ef5350;    /* Pendente/Dívida */
+    --success-color: #60d4ea;    /* Pago/Comprado (Ciano para consistência) */
+    --pending-color: #ef5350;    /* Pendente/Dívida (Vermelho) */
     --wallet-color: #b388ff;     /* Roxo para Carteira */
     
-    --toggle-off: #d32f2f;
-    --toggle-on: #60d4ea;
+    --toggle-off: #d32f2f;       /* Vermelho Switch */
+    --toggle-on: #60d4ea;        /* Ciano Switch */
 }
 
-* { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+* { box-sizing: border-box; font-family: 'Roboto', 'Segoe UI', sans-serif; margin: 0; padding: 0; }
 body { background-color: var(--bg-color); color: var(--text-main); padding-bottom: 50px; }
+
+/* --- LOGIN OVERLAY --- */
+.auth-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.95); z-index: 9999;
+    display: flex; justify-content: center; align-items: center;
+}
+.auth-box {
+    background-color: var(--card-bg); padding: 40px; border-radius: 12px;
+    border: 1px solid var(--accent-color); text-align: center;
+    box-shadow: 0 0 30px rgba(96, 212, 234, 0.2); width: 90%; max-width: 400px;
+}
+.auth-box h2 { color: var(--accent-color); margin-bottom: 10px; }
+.auth-box p { color: var(--text-muted); margin-bottom: 30px; }
+.btn-google {
+    background-color: #fff; color: #333; border: none; padding: 12px 20px;
+    border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1rem;
+    display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;
+    transition: 0.2s;
+}
+.btn-google:hover { background-color: #f1f1f1; }
+.btn-logout {
+    background: transparent; border: 1px solid var(--pending-color); color: var(--pending-color);
+    padding: 5px 15px; border-radius: 20px; cursor: pointer; font-size: 0.8rem;
+}
+.btn-logout:hover { background: var(--pending-color); color: white; }
 
 /* HEADER */
 header {
     background-color: var(--card-bg); padding: 15px; border-bottom: 1px solid var(--border-color);
-    text-align: center; margin-bottom: 20px;
+    text-align: center; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; padding: 15px 30px;
 }
-header h1 { color: var(--accent-color); font-weight: 300; text-transform: uppercase; font-size: 1.5rem; letter-spacing: 2px; }
+header h1 { color: var(--accent-color); font-weight: 300; text-transform: uppercase; font-size: 1.2rem; letter-spacing: 2px; }
 
-/* --- DASHBOARD GRID (NOVO) --- */
+/* --- DASHBOARD GRID --- */
 .dashboard-area {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr; /* 3 Colunas: Carteira, Progresso, Totais */
+    grid-template-columns: 1fr 1fr 1fr; /* 3 Colunas */
     gap: 20px;
     max-width: 1400px; margin: 0 auto 30px; padding: 0 20px;
 }
-
-@media (max-width: 1024px) {
-    .dashboard-area { grid-template-columns: 1fr; }
-}
+@media (max-width: 1024px) { .dashboard-area { grid-template-columns: 1fr; } }
 
 .dashboard-card {
     background-color: var(--card-bg);
@@ -54,13 +77,13 @@ header h1 { color: var(--accent-color); font-weight: 300; text-transform: upperc
     text-transform: uppercase; letter-spacing: 1px;
 }
 
-/* 1. ESTILOS DA CARTEIRA */
+/* 1. CARTEIRA */
 .wallet-card { border-top: 3px solid var(--wallet-color); }
 .wallet-display { text-align: center; margin-bottom: 15px; padding: 10px; background: #111; border-radius: 8px; }
 .wallet-label { display: block; font-size: 0.8rem; color: #888; }
 .wallet-value { font-size: 2rem; color: var(--wallet-color); font-weight: bold; text-shadow: 0 0 10px rgba(179, 136, 255, 0.2); }
 
-.wallet-controls input { width: 100%; margin-bottom: 8px; background: #000; border: 1px solid #333; color: white; padding: 8px; border-radius: 4px; }
+.wallet-controls input { width: 100%; margin-bottom: 8px; background: #000; border: 1px solid #333; color: white; padding: 8px; border-radius: 4px; outline: none; }
 .wallet-buttons { display: flex; gap: 10px; }
 .wallet-buttons button { flex: 1; padding: 8px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; color: #000; transition: filter 0.2s; }
 .btn-deposit { background-color: var(--success-color); }
@@ -72,7 +95,7 @@ header h1 { color: var(--accent-color); font-weight: 300; text-transform: upperc
 .hist-plus { color: var(--success-color); }
 .hist-minus { color: var(--pending-color); }
 
-/* 2. ESTILOS DAS BARRAS DE PROGRESSO */
+/* 2. BARRAS DE PROGRESSO */
 .progress-card { border-top: 3px solid var(--accent-color); }
 .progress-group { margin-bottom: 15px; }
 .prog-label { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 5px; color: #ccc; }
@@ -81,20 +104,20 @@ header h1 { color: var(--accent-color); font-weight: 300; text-transform: upperc
 
 .fill-finance { background: linear-gradient(90deg, #60d4ea, #4dd0e1); }
 .fill-qty { background: linear-gradient(90deg, #81c784, #66bb6a); }
-.fill-cover { background: linear-gradient(90deg, #b388ff, #7c4dff); } /* Roxo Carteira */
+.fill-cover { background: linear-gradient(90deg, #b388ff, #7c4dff); } 
 
 .prog-details { display: flex; justify-content: space-between; font-size: 0.75rem; margin-top: 3px; }
 
-/* 3. ESTILOS TOTAIS RESUMIDOS */
+/* 3. TOTAIS */
 .totals-card { border-top: 3px solid #fff; }
 .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #222; font-size: 0.9rem; }
 .main-total { border: none; font-size: 1.2rem; margin-top: 10px; padding-top: 10px; border-top: 1px solid #444; }
 
 
-/* --- SEÇÕES E CÔMODOS (Layout Base) --- */
+/* --- SEÇÕES E CÔMODOS --- */
 .section-area { background-color: var(--card-bg); padding: 20px 0 0; border-bottom: 1px solid var(--border-color); margin-bottom: 30px; }
 .section-controls { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; padding: 0 15px; }
-.section-controls input { width: 300px; padding: 10px; background: #0e0e0e; border: 1px solid var(--border-color); color: white; border-radius: 6px; }
+.section-controls input { width: 300px; padding: 10px; background: #0e0e0e; border: 1px solid var(--border-color); color: white; border-radius: 6px; outline: none;}
 .section-controls button { background: var(--accent-color); border: none; padding: 0 20px; border-radius: 6px; font-weight: bold; cursor: pointer; }
 
 .section-nav { display: flex; justify-content: center; gap: 5px; padding: 0 15px; }
@@ -109,7 +132,7 @@ header h1 { color: var(--accent-color); font-weight: 300; text-transform: upperc
 .c-red { color: var(--pending-color); }
 
 .room-controls { display: flex; justify-content: center; gap: 10px; margin: 20px auto; max-width: 800px; background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); }
-.room-controls input { flex-grow: 1; padding: 8px; background: #0e0e0e; border: 1px solid #333; color: white; border-radius: 4px; }
+.room-controls input { flex-grow: 1; padding: 8px; background: #0e0e0e; border: 1px solid #333; color: white; border-radius: 4px; outline: none; }
 .room-controls button { background: var(--accent-color); border: none; padding: 8px 20px; border-radius: 4px; font-weight: bold; cursor: pointer; }
 .delete-section-btn { background: #333 !important; color: var(--pending-color) !important; border: 1px solid var(--pending-color) !important; }
 
@@ -132,24 +155,23 @@ header h1 { color: var(--accent-color); font-weight: 300; text-transform: upperc
 .column { background: var(--card-bg); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }
 .column h3 { text-align: center; color: var(--accent-color); text-transform: uppercase; border-bottom: 2px solid var(--bg-color); padding-bottom: 10px; margin-bottom: 15px; font-size: 0.9rem; }
 
-/* --- CHECKLIST ÁREA E NOVO BOTÃO DE ADICIONAR --- */
+/* --- CHECKLIST ÁREA E BOTÃO REDESENHADO --- */
 .checklist-area { background: #0e0e0e; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px dashed #333; }
 .checklist-title { font-size: 0.8rem; color: #888; margin-bottom: 10px; font-weight: bold; }
 .checklist-items { display: flex; flex-wrap: wrap; gap: 5px; }
 .checklist-tag { background: #222; color: #ccc; padding: 5px 10px; border-radius: 15px; font-size: 0.8rem; cursor: pointer; border: 1px solid #333; transition: 0.2s; }
 .checklist-tag:hover { border-color: var(--accent-color); color: var(--accent-color); }
 
-/* WRAPPER DA CHECKLIST */
 .add-checklist-wrapper { display: flex; gap: 10px; margin-top: 10px; }
-.add-checklist-wrapper input { flex-grow: 1; padding: 6px; background: #000; border: 1px solid #333; color: white; border-radius: 4px; font-size: 0.8rem; }
+.add-checklist-wrapper input { flex-grow: 1; padding: 6px; background: #000; border: 1px solid #333; color: white; border-radius: 4px; font-size: 0.8rem; outline: none;}
 
-/* NOVO DESIGN DO BOTÃO ADD DA CHECKLIST */
+/* Botão Add Outline */
 .btn-check-add {
     background: transparent;
     color: var(--accent-color);
     border: 1px solid var(--accent-color);
     width: 30px; height: 30px;
-    border-radius: 50%; /* Circular */
+    border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -162,12 +184,17 @@ header h1 { color: var(--accent-color); font-weight: 300; text-transform: upperc
     transform: scale(1.1);
 }
 
-/* FORMULÁRIO DE ITEM */
+/* --- FORMULÁRIO E IA --- */
 .add-form { background: #111; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); }
-.add-form input, .add-form textarea { width: 100%; margin-bottom: 8px; padding: 8px; background: #0e0e0e; border: 1px solid #333; color: white; border-radius: 4px; }
+.add-form input, .add-form textarea { width: 100%; margin-bottom: 8px; padding: 8px; background: #0e0e0e; border: 1px solid #333; color: white; border-radius: 4px; outline: none;}
 .add-btn { width: 100%; margin-top: 10px; background: var(--accent-color); border: none; padding: 10px; font-weight: bold; border-radius: 4px; cursor: pointer; color: #000; }
 
-/* INPUT FILE CILINDRICO */
+.input-group-row { display: flex; gap: 5px; margin-bottom: 8px; }
+.input-group-row input { margin-bottom: 0 !important; }
+.ai-action-btn { background: linear-gradient(135deg, #60d4ea, #4dd0e1); color: #000; border: none; border-radius: 4px; padding: 0 12px; cursor: pointer; font-weight: bold; }
+.ai-action-btn:hover { box-shadow: 0 0 10px var(--accent-glow); transform: scale(1.05); }
+
+/* --- INPUT FILE CILINDRICO --- */
 .hidden-file-input { display: none; }
 .file-upload-btn { 
     display: flex; align-items: center; justify-content: center;
@@ -177,7 +204,7 @@ header h1 { color: var(--accent-color); font-weight: 300; text-transform: upperc
 .file-upload-btn:hover { background: var(--accent-color); color: #000; box-shadow: 0 0 10px var(--accent-glow); }
 .file-upload-btn i { margin-right: 5px; }
 
-/* LISTA DE ITENS */
+/* --- LISTA E ITENS --- */
 .item-list { list-style: none; margin-top: 15px; }
 .item-card { display: flex; gap: 15px; background: #111; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #333; position: relative; border-left: 5px solid var(--toggle-off); }
 .item-card.bought { border-left-color: var(--toggle-on); background: #151f21; }
@@ -186,10 +213,11 @@ header h1 { color: var(--accent-color); font-weight: 300; text-transform: upperc
 .item-name { font-weight: bold; display: block; }
 .item-price { color: var(--accent-color); font-weight: bold; display: block; }
 .item-desc { color: #888; font-size: 0.8rem; display: block; font-style: italic; }
+.item-link { color: #aaa; font-size: 0.8rem; text-decoration: none; }
 .delete-btn { position: absolute; top: 5px; right: 5px; background: none; border: none; color: #555; cursor: pointer; }
 .delete-btn:hover { color: var(--pending-color); }
 
-/* SWITCH CILINDRICO */
+/* --- SWITCH CILINDRICO --- */
 .status-switch { position: relative; display: inline-block; width: 120px; height: 26px; margin-top: 5px; }
 .status-switch input { opacity: 0; width: 0; height: 0; }
 .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--toggle-off); transition: .4s; border-radius: 34px; display: flex; align-items: center; justify-content: space-between; padding: 0 5px; }
@@ -201,3 +229,6 @@ input:checked + .slider:before { transform: translateX(94px); }
 .label-comprado { left: 10px; text-align: left; display: none; color: #000; }
 input:checked + .slider .label-pendente { display: none; }
 input:checked + .slider .label-comprado { display: block; }
+
+.fa-spinner { animation: spin 1s linear infinite; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
