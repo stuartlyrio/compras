@@ -3,91 +3,115 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planejador Dark Mode</title>
+    <title>Dashboard Casa Nova</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
 
 <header>
-    <h1>Gestão de Casa</h1>
+    <h1><i class="fas fa-home"></i> Gestão de Casa & Financeiro</h1>
+</header>
+
+<div class="dashboard-area">
     
-    <div class="global-totals">
-        <div class="total-box">
-            <strong title="Essenciais">Global Essenciais</strong>
-            <span class="main-value" id="global-essential-total">R$ 0,00</span>
-            <div class="sub-values">
-                <span class="val-bought" id="global-essential-bought">✔ R$ 0,00</span>
-                <span class="val-pending" id="global-essential-pending">⏳ R$ 0,00</span>
+    <div class="dashboard-card wallet-card">
+        <div class="card-title"><i class="fas fa-wallet"></i> Minha Carteira</div>
+        <div class="wallet-display">
+            <span class="wallet-label">Saldo Disponível</span>
+            <span class="wallet-value" id="wallet-balance">R$ 0,00</span>
+        </div>
+        
+        <div class="wallet-controls">
+            <input type="text" id="trans-desc" placeholder="Descrição (ex: Salário, Dívida)">
+            <input type="number" id="trans-val" placeholder="Valor (R$)" step="0.01">
+            <div class="wallet-buttons">
+                <button class="btn-deposit" onclick="handleTransaction('add')"><i class="fas fa-arrow-up"></i> Entrou</button>
+                <button class="btn-withdraw" onclick="handleTransaction('remove')"><i class="fas fa-arrow-down"></i> Saiu</button>
             </div>
         </div>
-        <div class="total-box">
-            <strong title="Comuns">Global Comuns</strong>
-            <span class="main-value" id="global-common-total">R$ 0,00</span>
-            <div class="sub-values">
-                <span class="val-bought" id="global-common-bought">✔ R$ 0,00</span>
-                <span class="val-pending" id="global-common-pending">⏳ R$ 0,00</span>
+        
+        <ul id="wallet-history" class="wallet-history"></ul>
+    </div>
+
+    <div class="dashboard-card progress-card">
+        <div class="card-title"><i class="fas fa-chart-pie"></i> Progresso do Projeto</div>
+
+        <div class="progress-group">
+            <div class="prog-label">
+                <span>Financeiro (Pago vs Total)</span>
+                <span id="prog-text-finance">0%</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill fill-finance" id="bar-finance" style="width: 0%"></div>
+            </div>
+            <div class="prog-details">
+                <span class="c-green" id="val-paid">Pago: R$ 0</span>
+                <span class="c-red" id="val-pending">Falta: R$ 0</span>
             </div>
         </div>
-        <div class="total-box">
-            <strong title="Desejados">Global Desejados</strong>
-            <span class="main-value" id="global-desejado-total">R$ 0,00</span>
-            <div class="sub-values">
-                <span class="val-bought" id="global-desejado-bought">✔ R$ 0,00</span>
-                <span class="val-pending" id="global-desejado-pending">⏳ R$ 0,00</span>
+
+        <div class="progress-group">
+            <div class="prog-label">
+                <span>Itens (Comprados vs Total)</span>
+                <span id="prog-text-qty">0%</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill fill-qty" id="bar-qty" style="width: 0%"></div>
+            </div>
+            <div class="prog-details">
+                <span class="c-green" id="qty-paid">0 itens</span>
+                <span class="c-red" id="qty-pending">0 itens</span>
             </div>
         </div>
-        <div class="total-box total-main">
-            <strong title="Soma de tudo">TOTAL GERAL</strong>
-            <span class="main-value" id="global-combined-total">R$ 0,00</span>
-            <div class="sub-values">
-                <span class="val-bought" id="global-combined-bought">✔ R$ 0,00</span>
-                <span class="val-pending" id="global-combined-pending">⏳ R$ 0,00</span>
+
+        <div class="progress-group">
+            <div class="prog-label">
+                <span>Poder de Compra (Carteira vs Custo Total)</span>
+                <span id="prog-text-cover">0%</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill fill-cover" id="bar-cover" style="width: 0%"></div>
+            </div>
+            <div class="prog-details">
+                <small style="color:#888;">Quanto do projeto sua carteira cobre hoje.</small>
             </div>
         </div>
     </div>
-</header>
+
+    <div class="dashboard-card totals-card">
+        <div class="card-title"><i class="fas fa-calculator"></i> Totais do Projeto</div>
+        <div class="total-row">
+            <span>Essencial:</span> <strong id="gl-ess">R$ 0,00</strong>
+        </div>
+        <div class="total-row">
+            <span>Comum:</span> <strong id="gl-com">R$ 0,00</strong>
+        </div>
+        <div class="total-row">
+            <span>Desejado:</span> <strong id="gl-des">R$ 0,00</strong>
+        </div>
+        <div class="total-row main-total">
+            <span>TOTAL GERAL:</span> <strong id="gl-total" style="color:var(--accent-color)">R$ 0,00</strong>
+        </div>
+    </div>
+</div>
 
 <div class="section-area">
     <div class="section-controls">
-        <input type="text" id="new-section-name" placeholder="Nova Seção (ex: Reforma)">
-        <button onclick="addNewSection()"><i class="fas fa-folder-plus"></i> Criar Seção</button>
+        <input type="text" id="new-section-name" placeholder="Nova Seção (ex: Reforma, Escritório)">
+        <button onclick="addNewSection()"><i class="fas fa-folder-plus"></i> Criar</button>
     </div>
     
     <nav class="section-nav" id="section-nav"></nav>
 
     <div class="section-summary-bar" id="section-summary-bar" style="display:none;">
-        <div class="sec-total-label">Seção: <span id="current-section-name-display" style="color:var(--accent-color)">---</span></div>
+        <div class="sec-total-label">Seção Atual: <span id="current-section-name-display" style="color:var(--accent-color)">---</span></div>
         <div class="sec-total-values">
-            <div class="sec-mini-box">
-                <small>Essencial</small>
-                <div id="sec-ess-total">R$ 0,00</div>
-                <div class="sec-sub">
-                    <span class="c-green" id="sec-ess-bought">✔ 0,00</span>
-                    <span class="c-red" id="sec-ess-pending">⏳ 0,00</span>
-                </div>
-            </div>
-            <div class="sec-mini-box">
-                <small>Comum</small>
-                <div id="sec-com-total">R$ 0,00</div>
-                <div class="sec-sub">
-                    <span class="c-green" id="sec-com-bought">✔ 0,00</span>
-                    <span class="c-red" id="sec-com-pending">⏳ 0,00</span>
-                </div>
-            </div>
-            <div class="sec-mini-box">
-                <small>Desejado</small>
-                <div id="sec-des-total">R$ 0,00</div>
-                <div class="sec-sub">
-                    <span class="c-green" id="sec-des-bought">✔ 0,00</span>
-                    <span class="c-red" id="sec-des-pending">⏳ 0,00</span>
-                </div>
-            </div>
             <div class="sec-total-final">
                 Total Seção: <b id="sec-combined-total">R$ 0,00</b>
                 <div class="sec-final-sub">
-                    <span id="sec-combined-bought">Pago: R$ 0,00</span> | 
-                    <span id="sec-combined-pending">Falta: R$ 0,00</span>
+                    <span class="c-green" id="sec-combined-bought">Pago: R$ 0,00</span> | 
+                    <span class="c-red" id="sec-combined-pending">Falta: R$ 0,00</span>
                 </div>
             </div>
         </div>
