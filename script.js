@@ -106,7 +106,7 @@ function switchSection(sectionId) {
     if(currentSec && currentSec.rooms.length > 0) {
         switchRoom(currentSec.rooms[0].id);
     } else {
-        document.getElementById('main-container').innerHTML = '<div style="text-align:center; padding:30px; color:#999">Nenhum cômodo nesta seção. Adicione um acima.</div>';
+        document.getElementById('main-container').innerHTML = '<div style="text-align:center; padding:30px; color:#666">Nenhum cômodo nesta seção. Adicione um acima.</div>';
     }
 }
 
@@ -202,11 +202,10 @@ function switchRoom(roomId) {
     const container = document.getElementById('main-container');
     const roomName = document.querySelector(`button[data-target="${roomId}"]`)?.innerText || 'Cômodo';
     
-    // Header do Quarto com Totais Detalhados
     container.innerHTML = `
         <div class="room-section active" id="section-${roomId}">
             <div class="room-header">
-                <h2>${roomName} <button class="delete-room-btn" onclick="deleteRoom('${roomId}')"><i class="fas fa-trash"></i> Excluir</button></h2>
+                <h2>${roomName} <button class="delete-room-btn" onclick="deleteRoom('${roomId}')"><i class="fas fa-trash"></i></button></h2>
                 <div class="room-stats">
                     <div class="stat-box">
                         <small>Essencial</small>
@@ -232,9 +231,9 @@ function switchRoom(roomId) {
                             <span class="c-red" id="pending-${roomId}-desejado">⏳ 0,00</span>
                         </div>
                     </div>
-                    <div class="stat-box" style="border-left: 2px solid #ccc; padding-left: 15px;">
+                    <div class="stat-box" style="border-left: 1px solid #333; padding-left: 15px;">
                         <small style="font-weight:bold;">TOTAL</small>
-                        <span class="stat-main" style="color:var(--accent-dark); font-size:1.1rem" id="total-${roomId}-combined">R$ 0,00</span>
+                        <span class="stat-main" style="color:var(--accent-color); font-size:1.2rem" id="total-${roomId}-combined">R$ 0,00</span>
                         <div class="stat-sub">
                              <span id="bought-${roomId}-combined">Pago: R$ 0,00</span>
                         </div>
@@ -264,7 +263,7 @@ function renderColumnHTML(roomId, category, title) {
         <div class="column">
             <h3>${title}</h3>
             <div class="checklist-area">
-                <div class="checklist-title">Falta Comprar (da Lista Padrão):</div>
+                <div class="checklist-title">Sugestões / Falta Comprar:</div>
                 <div class="checklist-items" id="check-${roomId}-${category}"></div>
                 <div class="add-checklist-wrapper">
                     <input type="text" id="new-check-${roomId}-${category}" placeholder="+ Item Checklist">
@@ -272,20 +271,20 @@ function renderColumnHTML(roomId, category, title) {
                 </div>
             </div>
             <div class="add-form">
-                <input type="text" id="input-${roomId}-${category}-name" placeholder="Nome">
-                <input type="number" id="input-${roomId}-${category}-price" placeholder="R$" step="0.01">
-                <textarea id="input-${roomId}-${category}-desc" placeholder="Detalhes..."></textarea>
+                <input type="text" id="input-${roomId}-${category}-name" placeholder="Nome do Produto">
+                <input type="number" id="input-${roomId}-${category}-price" placeholder="Valor (R$)" step="0.01">
+                <textarea id="input-${roomId}-${category}-desc" placeholder="Detalhes (cor, medidas, voltagem)..."></textarea>
                 <input type="text" id="input-${roomId}-${category}-link" placeholder="Link">
-                <label style="font-size:0.8rem">Foto:</label>
+                <label style="font-size:0.7rem; color:#888; display:block; margin-top:5px;">Foto do Produto:</label>
                 <input type="file" id="input-${roomId}-${category}-img" accept="image/*">
-                <button class="add-btn" onclick="addItem('${roomId}', '${category}')">Adicionar à Lista</button>
+                <button class="add-btn" onclick="addItem('${roomId}', '${category}')">Adicionar Item</button>
             </div>
             <ul class="item-list" id="list-${roomId}-${category}"></ul>
         </div>
     `;
 }
 
-// --- Funções Principais de Itens ---
+// --- Funções Itens ---
 
 function addItem(roomId, category) {
     const name = document.getElementById(`input-${roomId}-${category}-name`).value.trim();
@@ -299,12 +298,7 @@ function addItem(roomId, category) {
     const save = (img) => {
         houseData[roomId][category].push({ 
             id: Date.now(), 
-            name, 
-            price, 
-            desc, 
-            link, 
-            img, 
-            status: 'pending' 
+            name, price, desc, link, img, status: 'pending' 
         });
 
         document.getElementById(`input-${roomId}-${category}-name`).value = '';
@@ -324,7 +318,7 @@ function addItem(roomId, category) {
         reader.onload = e => save(e.target.result);
         reader.readAsDataURL(file);
     } else {
-        save('https://via.placeholder.com/60?text=Foto');
+        save('https://via.placeholder.com/70/111/666?text=Foto');
     }
 }
 
@@ -345,8 +339,6 @@ function removeItem(roomId, category, id) {
     updateRoomTotals(roomId);
     updateAllTotals();
 }
-
-// --- Renderização da Lista ---
 
 function renderLists(roomId, category) {
     const ul = document.getElementById(`list-${roomId}-${category}`);
@@ -397,7 +389,7 @@ function renderChecklist(roomId, category) {
             div.appendChild(tag);
         }
     });
-    if(div.innerHTML === '') div.innerHTML = '<span style="color:#ccc; font-size:0.8rem">Vazio ou Completo</span>';
+    if(div.innerHTML === '') div.innerHTML = '<span style="color:#555; font-size:0.8rem">Lista Vazia ou Completa</span>';
 }
 function addToChecklist(roomId, category) {
     const val = document.getElementById(`new-check-${roomId}-${category}`).value.trim();
@@ -407,9 +399,7 @@ function removeCheckItem(roomId, category, idx) { checklistData[roomId][category
 function fillForm(roomId, category, name) { document.getElementById(`input-${roomId}-${category}-name`).value = name; document.getElementById(`input-${roomId}-${category}-price`).focus(); }
 
 
-// --- TOTAIS (CÁLCULO COMPLEXO) ---
-
-// Função auxiliar para calcular totais de uma lista
+// --- TOTAIS (CALCULATION) ---
 function calcStats(items) {
     let total = 0, bought = 0;
     items.forEach(i => {
@@ -422,12 +412,10 @@ function calcStats(items) {
 function updateRoomTotals(roomId) {
     if(!houseData[roomId]) return;
 
-    // Calcula stats por categoria
     const ess = calcStats(houseData[roomId].essencial);
     const com = calcStats(houseData[roomId].comum);
     const des = calcStats(houseData[roomId].desejado);
     
-    // Atualiza HTML do Room Header
     const updateUI = (cat, stats) => {
         const el = document.getElementById(`total-${roomId}-${cat}`);
         if(el) {
@@ -441,7 +429,6 @@ function updateRoomTotals(roomId) {
     updateUI('comum', com);
     updateUI('desejado', des);
 
-    // Total Combined
     const totalComb = ess.total + com.total + des.total;
     const boughtComb = ess.bought + com.bought + des.bought;
     
@@ -450,7 +437,6 @@ function updateRoomTotals(roomId) {
 }
 
 function updateAllTotals() {
-    // Totais Globais
     let gEss = { total:0, bought:0 }, gCom = { total:0, bought:0 }, gDes = { total:0, bought:0 };
 
     sections.forEach(sec => {
@@ -467,7 +453,6 @@ function updateAllTotals() {
         });
     });
 
-    // Atualiza DOM Global
     const updateGlobal = (cat, stats) => {
         document.getElementById(`global-${cat}-total`).innerText = formatCurrency(stats.total);
         document.getElementById(`global-${cat}-bought`).innerText = `✔ ${formatCurrency(stats.bought)}`;
@@ -485,8 +470,6 @@ function updateAllTotals() {
     document.getElementById('global-combined-bought').innerText = `✔ ${formatCurrency(gCombBought)}`;
     document.getElementById('global-combined-pending').innerText = `⏳ ${formatCurrency(gCombTotal - gCombBought)}`;
 
-
-    // Totais da Seção Atual
     if(currentSectionId) {
         const currentSec = sections.find(s => s.id === currentSectionId);
         if(currentSec) {
@@ -504,7 +487,6 @@ function updateAllTotals() {
                 }
             });
 
-            // Atualiza DOM Seção
             const updateSec = (cat, stats) => {
                 document.getElementById(`sec-${cat}-total`).innerText = formatCurrency(stats.total);
                 document.getElementById(`sec-${cat}-bought`).innerText = `✔ ${formatCurrency(stats.bought)}`;
