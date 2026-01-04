@@ -1,6 +1,6 @@
 # 🏠 Gestão de Casa & Financeiro
 
-> 🔗 **Acesse o site online aqui:** [https://stuartlyrio.github.io/compras/](https://stuartlyrio.github.io/compras/)
+> 🔗 **[SITE](https://stuartlyrio.github.io/compras/)**
 
 Um painel de controle completo (Dashboard) para quem está de mudança, reformando ou mobiliando uma casa nova. O aplicativo permite gerenciar orçamentos, criar listas de itens por cômodo e acompanhar o fluxo financeiro do projeto.
 
@@ -69,7 +69,7 @@ Você não precisa instalar nada (Node.js, Python, etc.) para rodar a versão fi
 
 ### Passo 3: Executar
 * **Localmente:** Use uma extensão como "Live Server" no VS Code. (Não abra o arquivo diretamente com dois cliques devido a bloqueios de segurança CORS/Module).
-* **Online:** Acesse diretamente pelo link: [https://stuartlyrio.github.io/compras/](https://stuartlyrio.github.io/compras/)
+* **Online:** [Acesse o site rodando aqui](https://stuartlyrio.github.io/compras/)
 
 ---
 
