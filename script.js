@@ -22,14 +22,15 @@ const defaultChecklists = {
     }
 };
 
-// --- VARIÁVEIS GLOBAIS ---
+// --- VARIÁVEIS GLOBAIS (Estado) ---
+// Serão sobrescritas pelos dados do Firebase
 let sections = [];
 let houseData = {}; 
 let checklistData = {};
 let wallet = { balance: 0, history: [] };
 let currentSectionId = null;
 
-// --- FIREBASE SYNC ---
+// --- FUNÇÕES DE SINCRONIZAÇÃO FIREBASE ---
 
 // 1. CARREGAR DADOS (Chamado pelo HTML ao logar)
 window.loadUserData = async (uid) => {
@@ -48,42 +49,48 @@ window.loadUserData = async (uid) => {
             wallet = data.wallet || { balance: 0, history: [] };
         } else {
             console.log("Novo usuário, criando estrutura padrão...");
-            // Inicializa padrão
+            // Inicializa estrutura padrão para NOVOS usuários (Google ou Email)
             sections = [{
                 id: 'mobilia', name: 'Mobília e Planejamento',
                 rooms: [{ id: 'sala', name: 'Sala' }, { id: 'cozinha', name: 'Cozinha' }]
             }];
             sections.forEach(sec => sec.rooms.forEach(room => initializeRoomData(room)));
-            saveData(); 
+            saveData(); // Salva estado inicial
         }
 
-        // Renderiza
+        // Renderiza o App
         if(sections.length > 0) switchSection(sections[0].id);
         renderSectionNav();
         updateAllTotals();
         updateWalletUI();
 
     } catch (e) {
-        console.error("Erro ao carregar:", e);
+        console.error("Erro ao carregar dados:", e);
+        // Não mostrar alerta intrusivo, apenas log
     }
 };
 
-// 2. SALVAR DADOS
+// 2. SALVAR DADOS (Chamado sempre que alteramos algo)
 const saveData = async () => {
-    if (!window.currentUser) return;
+    if (!window.currentUser) return; // Não salva se não estiver logado
 
     const uid = window.currentUser.uid;
-    const dataToSave = { sections, houseData, checklistData, wallet };
+    const dataToSave = {
+        sections,
+        houseData,
+        checklistData,
+        wallet
+    };
 
     try {
         await window.setDoc(window.doc(window.db, "users", uid), dataToSave, { merge: true });
-        console.log("Salvo no Firebase");
+        console.log("Salvo automaticamente no Firebase");
     } catch (e) {
         console.error("Erro ao salvar:", e);
     }
 };
 
-// --- HELPER INICIALIZAÇÃO ---
+// --- HELPER DE INICIALIZAÇÃO ---
 function initializeRoomData(room) {
     if (!houseData[room.id]) {
         houseData[room.id] = { essencial: [], comum: [], desejado: [] };
@@ -102,7 +109,7 @@ function initializeRoomData(room) {
     }
 }
 
-// --- CARTEIRA ---
+// --- LÓGICA DA CARTEIRA ---
 function handleTransaction(type) {
     const descInput = document.getElementById('trans-desc');
     const valInput = document.getElementById('trans-val');
@@ -122,7 +129,7 @@ function handleTransaction(type) {
     
     updateWalletUI();
     updateAllTotals();
-    saveData();
+    saveData(); // SALVAR NO FIREBASE
 }
 
 function updateWalletUI() {
@@ -138,7 +145,7 @@ function updateWalletUI() {
     });
 }
 
-// --- SEÇÕES ---
+// --- NAVEGAÇÃO E SEÇÕES ---
 function renderSectionNav() {
     const nav = document.getElementById('section-nav');
     nav.innerHTML = '';
@@ -163,7 +170,7 @@ function switchSection(sectionId) {
     renderRoomsNav();
     updateAllTotals();
     if(currentSec && currentSec.rooms.length > 0) switchRoom(currentSec.rooms[0].id);
-    else document.getElementById('main-container').innerHTML = '<div style="text-align:center; padding:30px; color:#666">Nenhum cômodo.</div>';
+    else document.getElementById('main-container').innerHTML = '<div style="text-align:center; padding:30px; color:#666">Nenhum cômodo nesta seção.</div>';
 }
 
 function addNewSection() {
@@ -173,12 +180,13 @@ function addNewSection() {
     sections.push({ id, name, rooms: [] });
     document.getElementById('new-section-name').value = '';
     switchSection(id);
-    saveData();
+    saveData(); // SALVAR NO FIREBASE
 }
 
 function deleteCurrentSection() {
     if(!currentSectionId || !confirm("Apagar seção inteira?")) return;
     sections = sections.filter(s => s.id !== currentSectionId);
+    
     if(sections.length > 0) switchSection(sections[0].id);
     else {
         currentSectionId = null;
@@ -187,7 +195,7 @@ function deleteCurrentSection() {
         document.getElementById('room-area-wrapper').style.display = 'none';
     }
     updateAllTotals();
-    saveData();
+    saveData(); // SALVAR NO FIREBASE
 }
 
 // --- CÔMODOS ---
@@ -218,7 +226,7 @@ function addNewRoom() {
     renderRoomsNav();
     switchRoom(id);
     updateAllTotals();
-    saveData();
+    saveData(); // SALVAR NO FIREBASE
 }
 
 function switchRoom(roomId) {
@@ -273,7 +281,7 @@ function renderColumnHTML(roomId, category, title) {
     `;
 }
 
-// --- ITENS ---
+// --- LÓGICA DE ITENS ---
 function addItem(roomId, category) {
     const name = document.getElementById(`in-${roomId}-${category}-name`).value.trim();
     const price = parseFloat(document.getElementById(`in-${roomId}-${category}-price`).value);
@@ -286,15 +294,18 @@ function addItem(roomId, category) {
     const save = (img) => {
         houseData[roomId][category].push({ id: Date.now(), name, price, desc, link, img, status: 'pending' });
         
-        // Limpa
+        // Limpa formulário
         document.getElementById(`in-${roomId}-${category}-name`).value = '';
         document.getElementById(`in-${roomId}-${category}-price`).value = '';
         document.getElementById(`in-${roomId}-${category}-desc`).value = '';
         document.getElementById(`in-${roomId}-${category}-link`).value = '';
         document.getElementById(`in-${roomId}-${category}-img`).value = '';
         
-        renderLists(roomId, category); renderChecklist(roomId, category); updateRoomTotals(roomId); updateAllTotals();
-        saveData();
+        renderLists(roomId, category);
+        renderChecklist(roomId, category);
+        updateRoomTotals(roomId);
+        updateAllTotals();
+        saveData(); // SALVAR NO FIREBASE
     };
     
     if(file) {
@@ -307,14 +318,14 @@ function addItem(roomId, category) {
 function removeItem(roomId, category, id) {
     houseData[roomId][category] = houseData[roomId][category].filter(i => i.id !== id);
     renderLists(roomId, category); renderChecklist(roomId, category); updateAllTotals();
-    saveData();
+    saveData(); // SALVAR NO FIREBASE
 }
 
 function toggleStatus(roomId, category, id) {
     const item = houseData[roomId][category].find(i => i.id === id);
     if(item) { item.status = (item.status === 'bought' ? 'pending' : 'bought'); }
     renderLists(roomId, category); updateAllTotals();
-    saveData();
+    saveData(); // SALVAR NO FIREBASE
 }
 
 function renderLists(roomId, category) {
