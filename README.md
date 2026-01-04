@@ -1,6 +1,6 @@
-# compras
-Planejador de mobília e orçamento para casa nova. Organiza itens por cômodo e prioridade (essencial/comum), calculando custos totais automaticamente. Desenvolvido em HTML/CSS/JS, com roadmap para integração de IA que preenche dados do produto (preço/imagem) apenas com o link.
 # 🏠 Gestão de Casa & Financeiro
+
+> 🔗 **Acesse o site online aqui:** [https://stuartlyrio.github.io/compras/](https://stuartlyrio.github.io/compras/)
 
 Um painel de controle completo (Dashboard) para quem está de mudança, reformando ou mobiliando uma casa nova. O aplicativo permite gerenciar orçamentos, criar listas de itens por cômodo e acompanhar o fluxo financeiro do projeto.
 
@@ -62,14 +62,14 @@ Você não precisa instalar nada (Node.js, Python, etc.) para rodar a versão fi
 ### Passo 2: Configurar o Código
 1.  Clone este repositório:
     ```bash
-    git clone [https://github.com/SEU-USUARIO/casa-nova.git](https://github.com/SEU-USUARIO/casa-nova.git)
+    git clone [https://github.com/stuartlyrio/compras.git](https://github.com/stuartlyrio/compras.git)
     ```
 2.  Abra o arquivo `index.html`.
 3.  Procure pela constante `firebaseConfig` no final do arquivo e substitua pelos dados do seu projeto Firebase.
 
 ### Passo 3: Executar
 * **Localmente:** Use uma extensão como "Live Server" no VS Code. (Não abra o arquivo diretamente com dois cliques devido a bloqueios de segurança CORS/Module).
-* **Online:** Suba os arquivos para o **GitHub Pages** ou Vercel/Netlify.
+* **Online:** Acesse diretamente pelo link: [https://stuartlyrio.github.io/compras/](https://stuartlyrio.github.io/compras/)
 
 ---
 
