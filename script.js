@@ -23,7 +23,6 @@ const defaultChecklists = {
 };
 
 // --- Estrutura de Dados ---
-// Hierarquia: sections -> rooms
 let sections = [
     {
         id: 'mobilia',
@@ -39,7 +38,6 @@ let sections = [
     }
 ];
 
-// Dados de itens e checklists ficam "planos" (indexados pelo ID do quarto, que é único)
 let houseData = {}; 
 let checklistData = {};
 let currentSectionId = null;
@@ -47,12 +45,10 @@ let currentSectionId = null;
 // --- Inicialização ---
 
 function init() {
-    // Garante que todos os quartos existentes tenham estrutura de dados
     sections.forEach(sec => {
         sec.rooms.forEach(room => initializeRoomData(room));
     });
 
-    // Se houver seções, seleciona a primeira
     if(sections.length > 0) {
         switchSection(sections[0].id);
     }
@@ -97,21 +93,21 @@ function renderSectionNav() {
 
 function switchSection(sectionId) {
     currentSectionId = sectionId;
-    renderSectionNav(); // Atualiza visual active
+    renderSectionNav();
     
-    // Mostra a área de quartos
+    const summaryBar = document.getElementById('section-summary-bar');
+    summaryBar.style.display = 'flex';
     document.getElementById('room-area-wrapper').style.display = 'block';
     
-    // Atualiza título de controle
     const currentSec = sections.find(s => s.id === sectionId);
-    document.getElementById('current-section-title').innerText = currentSec ? currentSec.name : '';
+    document.getElementById('current-section-name-display').innerText = currentSec ? currentSec.name : '';
 
     renderRoomsNav();
+    updateAllTotals(); // Atualiza os números da seção atual
     
-    // Seleciona o primeiro quarto desta seção automaticamente, se houver
-    const secObj = sections.find(s => s.id === sectionId);
-    if(secObj && secObj.rooms.length > 0) {
-        switchRoom(secObj.rooms[0].id);
+    // Seleciona o primeiro quarto se houver
+    if(currentSec && currentSec.rooms.length > 0) {
+        switchRoom(currentSec.rooms[0].id);
     } else {
         document.getElementById('main-container').innerHTML = '<div style="text-align:center; padding:30px; color:#999">Nenhum cômodo nesta seção. Adicione um acima.</div>';
     }
@@ -133,7 +129,6 @@ function deleteCurrentSection() {
     if(!currentSectionId) return;
     if(!confirm("Tem certeza que deseja apagar esta seção inteira e todos os seus itens?")) return;
     
-    // Apaga dados dos quartos dessa seção para limpar memória (opcional)
     const sec = sections.find(s => s.id === currentSectionId);
     sec.rooms.forEach(r => {
         delete houseData[r.id];
@@ -147,13 +142,14 @@ function deleteCurrentSection() {
     } else {
         currentSectionId = null;
         renderSectionNav();
+        document.getElementById('section-summary-bar').style.display = 'none';
         document.getElementById('room-area-wrapper').style.display = 'none';
     }
     updateAllTotals();
 }
 
 
-// --- Gerenciamento de Cômodos (Dentro da Seção) ---
+// --- Gerenciamento de Cômodos ---
 
 function renderRoomsNav() {
     const nav = document.getElementById('room-nav');
@@ -184,11 +180,12 @@ function addNewRoom() {
     const currentSec = sections.find(s => s.id === currentSectionId);
     currentSec.rooms.push({ id, name });
     
-    initializeRoomData({ id, name }); // Inicializa dados vazios
+    initializeRoomData({ id, name });
     
     input.value = '';
     renderRoomsNav();
     switchRoom(id);
+    updateAllTotals(); // Atualiza a contagem da seção
 }
 
 function deleteRoom(roomId) {
@@ -213,12 +210,10 @@ function deleteRoom(roomId) {
 // --- Renderização do Conteúdo do Cômodo ---
 
 function switchRoom(roomId) {
-    // Visual Nav
     document.querySelectorAll('.room-btn').forEach(btn => btn.classList.remove('active'));
     const btn = document.querySelector(`button[data-target="${roomId}"]`);
     if(btn) btn.classList.add('active');
 
-    // Renderiza o painel do quarto
     const container = document.getElementById('main-container');
     const roomName = document.querySelector(`button[data-target="${roomId}"]`)?.innerText || 'Cômodo';
     
@@ -245,11 +240,9 @@ function switchRoom(roomId) {
     renderChecklist(roomId, 'essencial');
     renderChecklist(roomId, 'comum');
     renderChecklist(roomId, 'desejado');
-    
     renderLists(roomId, 'essencial');
     renderLists(roomId, 'comum');
     renderLists(roomId, 'desejado');
-    
     updateRoomTotals(roomId);
 }
 
@@ -279,7 +272,7 @@ function renderColumnHTML(roomId, category, title) {
     `;
 }
 
-// --- Funções de Itens e Checklist (Lógica Mantida) ---
+// --- Funções de Itens ---
 
 function renderChecklist(roomId, category) {
     if(!checklistData[roomId]) return;
@@ -332,7 +325,6 @@ function addItem(roomId, category) {
 
     const save = (img) => {
         houseData[roomId][category].push({ id: Date.now(), name, price, desc, link, img });
-        // Limpa form
         document.getElementById(`input-${roomId}-${category}-name`).value = '';
         document.getElementById(`input-${roomId}-${category}-price`).value = '';
         document.getElementById(`input-${roomId}-${category}-desc`).value = '';
@@ -382,10 +374,10 @@ function renderLists(roomId, category) {
     });
 }
 
-// --- Totais ---
+// --- TOTAIS (GLOBAL E SEÇÃO) ---
 
 function updateRoomTotals(roomId) {
-    // Atualiza apenas os números do cabeçalho do cômodo atual
+    if(!houseData[roomId]) return;
     const rEss = houseData[roomId].essencial.reduce((a,b)=>a+b.price,0);
     const rCom = houseData[roomId].comum.reduce((a,b)=>a+b.price,0);
     const rDes = houseData[roomId].desejado.reduce((a,b)=>a+b.price,0);
@@ -400,23 +392,44 @@ function updateRoomTotals(roomId) {
 }
 
 function updateAllTotals() {
-    let tEss=0, tCom=0, tDes=0;
+    let globalEss=0, globalCom=0, globalDes=0;
     
-    // Itera por TODAS as seções e TODOS os quartos
+    // Cálculo Global
     sections.forEach(sec => {
         sec.rooms.forEach(room => {
             if(houseData[room.id]) {
-                tEss += houseData[room.id].essencial.reduce((a,b)=>a+b.price,0);
-                tCom += houseData[room.id].comum.reduce((a,b)=>a+b.price,0);
-                tDes += houseData[room.id].desejado.reduce((a,b)=>a+b.price,0);
+                globalEss += houseData[room.id].essencial.reduce((a,b)=>a+b.price,0);
+                globalCom += houseData[room.id].comum.reduce((a,b)=>a+b.price,0);
+                globalDes += houseData[room.id].desejado.reduce((a,b)=>a+b.price,0);
             }
         });
     });
 
-    document.getElementById('global-essential').innerText = formatCurrency(tEss);
-    document.getElementById('global-common').innerText = formatCurrency(tCom);
-    document.getElementById('global-desejado').innerText = formatCurrency(tDes);
-    document.getElementById('global-combined').innerText = formatCurrency(tEss+tCom+tDes);
+    // Atualiza Labels Globais
+    document.getElementById('global-essential').innerText = formatCurrency(globalEss);
+    document.getElementById('global-common').innerText = formatCurrency(globalCom);
+    document.getElementById('global-desejado').innerText = formatCurrency(globalDes);
+    document.getElementById('global-combined').innerText = formatCurrency(globalEss+globalCom+globalDes);
+
+    // --- CÁLCULO DA SEÇÃO ATUAL (NOVO) ---
+    if(currentSectionId) {
+        const currentSec = sections.find(s => s.id === currentSectionId);
+        if(currentSec) {
+            let secEss=0, secCom=0, secDes=0;
+            currentSec.rooms.forEach(room => {
+                if(houseData[room.id]) {
+                    secEss += houseData[room.id].essencial.reduce((a,b)=>a+b.price,0);
+                    secCom += houseData[room.id].comum.reduce((a,b)=>a+b.price,0);
+                    secDes += houseData[room.id].desejado.reduce((a,b)=>a+b.price,0);
+                }
+            });
+            // Atualiza Labels da Seção
+            document.getElementById('sec-total-essencial').innerText = formatCurrency(secEss);
+            document.getElementById('sec-total-comum').innerText = formatCurrency(secCom);
+            document.getElementById('sec-total-desejado').innerText = formatCurrency(secDes);
+            document.getElementById('sec-total-combined').innerText = formatCurrency(secEss+secCom+secDes);
+        }
+    }
 }
 
 function formatCurrency(val) { return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
