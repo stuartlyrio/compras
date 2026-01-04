@@ -5,32 +5,41 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Planejador de Casa Nova</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
 
 <header>
     <h1>Mobília & Planejamento</h1>
+    
     <div class="global-totals">
         <div class="total-box">
-            <strong title="Todos os cômodos">Total Essenciais</strong>
+            <strong title="Essenciais">Essenciais</strong>
             <span id="global-essential">R$ 0,00</span>
         </div>
         <div class="total-box">
-            <strong title="Todos os cômodos">Total Comuns</strong>
+            <strong title="Comuns">Comuns</strong>
             <span id="global-common">R$ 0,00</span>
         </div>
+        <div class="total-box">
+            <strong title="Desejados">Desejados</strong>
+            <span id="global-desejado">R$ 0,00</span>
+        </div>
         <div class="total-box total-main">
-            <strong title="Todos os cômodos">TOTAL GERAL</strong>
+            <strong title="Soma de tudo">TOTAL GERAL</strong>
             <span id="global-combined">R$ 0,00</span>
         </div>
     </div>
 </header>
 
-<nav class="room-nav" id="room-nav">
-    </nav>
+<div class="room-controls">
+    <input type="text" id="new-room-name" placeholder="Nome do novo cômodo (ex: Escritório)">
+    <button onclick="addNewRoom()"><i class="fas fa-plus"></i> Criar Cômodo</button>
+</div>
 
-<div class="container" id="main-container">
-    </div>
+<nav class="room-nav" id="room-nav"></nav>
+
+<div class="container" id="main-container"></div>
 
 <script src="script.js"></script>
 </body>
