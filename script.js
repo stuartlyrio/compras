@@ -202,15 +202,43 @@ function switchRoom(roomId) {
     const container = document.getElementById('main-container');
     const roomName = document.querySelector(`button[data-target="${roomId}"]`)?.innerText || 'Cômodo';
     
+    // Header do Quarto com Totais Detalhados
     container.innerHTML = `
         <div class="room-section active" id="section-${roomId}">
             <div class="room-header">
                 <h2>${roomName} <button class="delete-room-btn" onclick="deleteRoom('${roomId}')"><i class="fas fa-trash"></i> Excluir</button></h2>
                 <div class="room-stats">
-                    <div>Essenciais: <strong id="total-${roomId}-essencial">R$ 0,00</strong></div>
-                    <div>Comuns: <strong id="total-${roomId}-comum">R$ 0,00</strong></div>
-                    <div>Desejados: <strong id="total-${roomId}-desejado">R$ 0,00</strong></div>
-                    <div style="border-left: 2px solid #ccc; padding-left: 10px; color:var(--accent-dark)">Total: <strong id="total-${roomId}-combined">R$ 0,00</strong></div>
+                    <div class="stat-box">
+                        <small>Essencial</small>
+                        <span class="stat-main" id="total-${roomId}-essencial">R$ 0,00</span>
+                        <div class="stat-sub">
+                            <span class="c-green" id="bought-${roomId}-essencial">✔ 0,00</span>
+                            <span class="c-red" id="pending-${roomId}-essencial">⏳ 0,00</span>
+                        </div>
+                    </div>
+                    <div class="stat-box">
+                        <small>Comum</small>
+                        <span class="stat-main" id="total-${roomId}-comum">R$ 0,00</span>
+                        <div class="stat-sub">
+                            <span class="c-green" id="bought-${roomId}-comum">✔ 0,00</span>
+                            <span class="c-red" id="pending-${roomId}-comum">⏳ 0,00</span>
+                        </div>
+                    </div>
+                    <div class="stat-box">
+                        <small>Desejado</small>
+                        <span class="stat-main" id="total-${roomId}-desejado">R$ 0,00</span>
+                        <div class="stat-sub">
+                            <span class="c-green" id="bought-${roomId}-desejado">✔ 0,00</span>
+                            <span class="c-red" id="pending-${roomId}-desejado">⏳ 0,00</span>
+                        </div>
+                    </div>
+                    <div class="stat-box" style="border-left: 2px solid #ccc; padding-left: 15px;">
+                        <small style="font-weight:bold;">TOTAL</small>
+                        <span class="stat-main" style="color:var(--accent-dark); font-size:1.1rem" id="total-${roomId}-combined">R$ 0,00</span>
+                        <div class="stat-sub">
+                             <span id="bought-${roomId}-combined">Pago: R$ 0,00</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -269,7 +297,6 @@ function addItem(roomId, category) {
     if(!name || isNaN(price)) { alert("Nome e preço obrigatórios."); return; }
 
     const save = (img) => {
-        // Status 'pending' por padrão
         houseData[roomId][category].push({ 
             id: Date.now(), 
             name, 
@@ -306,6 +333,8 @@ function toggleItemStatus(roomId, category, itemId) {
     if(item) {
         item.status = (item.status === 'bought') ? 'pending' : 'bought';
         renderLists(roomId, category);
+        updateRoomTotals(roomId);
+        updateAllTotals();
     }
 }
 
@@ -317,7 +346,7 @@ function removeItem(roomId, category, id) {
     updateAllTotals();
 }
 
-// --- Renderização da Lista (Com o novo botão) ---
+// --- Renderização da Lista ---
 
 function renderLists(roomId, category) {
     const ul = document.getElementById(`list-${roomId}-${category}`);
@@ -327,7 +356,7 @@ function renderLists(roomId, category) {
         const li = document.createElement('li');
         const isBought = item.status === 'bought';
         
-        li.className = `item-card`;
+        li.className = `item-card ${isBought ? 'bought' : ''}`;
         
         li.innerHTML = `
             <img src="${item.img}" class="item-img">
@@ -352,14 +381,11 @@ function renderLists(roomId, category) {
 }
 
 // --- Checklist Logic ---
-
 function renderChecklist(roomId, category) {
     if(!checklistData[roomId]) return;
     const div = document.getElementById(`check-${roomId}-${category}`);
     div.innerHTML = '';
-    
     const purchased = houseData[roomId][category].map(i => i.name.toLowerCase().trim());
-    
     checklistData[roomId][category].forEach((item, idx) => {
         if(!purchased.includes(item.toLowerCase().trim())) {
             const tag = document.createElement('div');
@@ -373,76 +399,128 @@ function renderChecklist(roomId, category) {
     });
     if(div.innerHTML === '') div.innerHTML = '<span style="color:#ccc; font-size:0.8rem">Vazio ou Completo</span>';
 }
-
 function addToChecklist(roomId, category) {
     const val = document.getElementById(`new-check-${roomId}-${category}`).value.trim();
-    if(val) {
-        checklistData[roomId][category].push(val);
-        document.getElementById(`new-check-${roomId}-${category}`).value = '';
-        renderChecklist(roomId, category);
-    }
+    if(val) { checklistData[roomId][category].push(val); document.getElementById(`new-check-${roomId}-${category}`).value = ''; renderChecklist(roomId, category); }
 }
+function removeCheckItem(roomId, category, idx) { checklistData[roomId][category].splice(idx, 1); renderChecklist(roomId, category); }
+function fillForm(roomId, category, name) { document.getElementById(`input-${roomId}-${category}-name`).value = name; document.getElementById(`input-${roomId}-${category}-price`).focus(); }
 
-function removeCheckItem(roomId, category, idx) {
-    checklistData[roomId][category].splice(idx, 1);
-    renderChecklist(roomId, category);
+
+// --- TOTAIS (CÁLCULO COMPLEXO) ---
+
+// Função auxiliar para calcular totais de uma lista
+function calcStats(items) {
+    let total = 0, bought = 0;
+    items.forEach(i => {
+        total += i.price;
+        if(i.status === 'bought') bought += i.price;
+    });
+    return { total, bought, pending: total - bought };
 }
-
-function fillForm(roomId, category, name) {
-    document.getElementById(`input-${roomId}-${category}-name`).value = name;
-    document.getElementById(`input-${roomId}-${category}-price`).focus();
-}
-
-// --- Totais ---
 
 function updateRoomTotals(roomId) {
     if(!houseData[roomId]) return;
-    const rEss = houseData[roomId].essencial.reduce((a,b)=>a+b.price,0);
-    const rCom = houseData[roomId].comum.reduce((a,b)=>a+b.price,0);
-    const rDes = houseData[roomId].desejado.reduce((a,b)=>a+b.price,0);
+
+    // Calcula stats por categoria
+    const ess = calcStats(houseData[roomId].essencial);
+    const com = calcStats(houseData[roomId].comum);
+    const des = calcStats(houseData[roomId].desejado);
     
-    const el = document.getElementById(`total-${roomId}-essencial`);
-    if(el) {
-        el.innerText = formatCurrency(rEss);
-        document.getElementById(`total-${roomId}-comum`).innerText = formatCurrency(rCom);
-        document.getElementById(`total-${roomId}-desejado`).innerText = formatCurrency(rDes);
-        document.getElementById(`total-${roomId}-combined`).innerText = formatCurrency(rEss+rCom+rDes);
-    }
+    // Atualiza HTML do Room Header
+    const updateUI = (cat, stats) => {
+        const el = document.getElementById(`total-${roomId}-${cat}`);
+        if(el) {
+            el.innerText = formatCurrency(stats.total);
+            document.getElementById(`bought-${roomId}-${cat}`).innerText = `✔ ${formatCurrency(stats.bought)}`;
+            document.getElementById(`pending-${roomId}-${cat}`).innerText = `⏳ ${formatCurrency(stats.pending)}`;
+        }
+    };
+
+    updateUI('essencial', ess);
+    updateUI('comum', com);
+    updateUI('desejado', des);
+
+    // Total Combined
+    const totalComb = ess.total + com.total + des.total;
+    const boughtComb = ess.bought + com.bought + des.bought;
+    
+    document.getElementById(`total-${roomId}-combined`).innerText = formatCurrency(totalComb);
+    document.getElementById(`bought-${roomId}-combined`).innerText = `Pago: ${formatCurrency(boughtComb)}`;
 }
 
 function updateAllTotals() {
-    let globalEss=0, globalCom=0, globalDes=0;
-    
+    // Totais Globais
+    let gEss = { total:0, bought:0 }, gCom = { total:0, bought:0 }, gDes = { total:0, bought:0 };
+
     sections.forEach(sec => {
         sec.rooms.forEach(room => {
             if(houseData[room.id]) {
-                globalEss += houseData[room.id].essencial.reduce((a,b)=>a+b.price,0);
-                globalCom += houseData[room.id].comum.reduce((a,b)=>a+b.price,0);
-                globalDes += houseData[room.id].desejado.reduce((a,b)=>a+b.price,0);
+                const rEss = calcStats(houseData[room.id].essencial);
+                const rCom = calcStats(houseData[room.id].comum);
+                const rDes = calcStats(houseData[room.id].desejado);
+
+                gEss.total += rEss.total; gEss.bought += rEss.bought;
+                gCom.total += rCom.total; gCom.bought += rCom.bought;
+                gDes.total += rDes.total; gDes.bought += rDes.bought;
             }
         });
     });
 
-    document.getElementById('global-essential').innerText = formatCurrency(globalEss);
-    document.getElementById('global-common').innerText = formatCurrency(globalCom);
-    document.getElementById('global-desejado').innerText = formatCurrency(globalDes);
-    document.getElementById('global-combined').innerText = formatCurrency(globalEss+globalCom+globalDes);
+    // Atualiza DOM Global
+    const updateGlobal = (cat, stats) => {
+        document.getElementById(`global-${cat}-total`).innerText = formatCurrency(stats.total);
+        document.getElementById(`global-${cat}-bought`).innerText = `✔ ${formatCurrency(stats.bought)}`;
+        document.getElementById(`global-${cat}-pending`).innerText = `⏳ ${formatCurrency(stats.total - stats.bought)}`;
+    };
 
+    updateGlobal('essential', gEss);
+    updateGlobal('common', gCom);
+    updateGlobal('desejado', gDes);
+
+    const gCombTotal = gEss.total + gCom.total + gDes.total;
+    const gCombBought = gEss.bought + gCom.bought + gDes.bought;
+    
+    document.getElementById('global-combined-total').innerText = formatCurrency(gCombTotal);
+    document.getElementById('global-combined-bought').innerText = `✔ ${formatCurrency(gCombBought)}`;
+    document.getElementById('global-combined-pending').innerText = `⏳ ${formatCurrency(gCombTotal - gCombBought)}`;
+
+
+    // Totais da Seção Atual
     if(currentSectionId) {
         const currentSec = sections.find(s => s.id === currentSectionId);
         if(currentSec) {
-            let secEss=0, secCom=0, secDes=0;
+            let sEss = { total:0, bought:0 }, sCom = { total:0, bought:0 }, sDes = { total:0, bought:0 };
+
             currentSec.rooms.forEach(room => {
                 if(houseData[room.id]) {
-                    secEss += houseData[room.id].essencial.reduce((a,b)=>a+b.price,0);
-                    secCom += houseData[room.id].comum.reduce((a,b)=>a+b.price,0);
-                    secDes += houseData[room.id].desejado.reduce((a,b)=>a+b.price,0);
+                    const rEss = calcStats(houseData[room.id].essencial);
+                    const rCom = calcStats(houseData[room.id].comum);
+                    const rDes = calcStats(houseData[room.id].desejado);
+
+                    sEss.total += rEss.total; sEss.bought += rEss.bought;
+                    sCom.total += rCom.total; sCom.bought += rCom.bought;
+                    sDes.total += rDes.total; sDes.bought += rDes.bought;
                 }
             });
-            document.getElementById('sec-total-essencial').innerText = formatCurrency(secEss);
-            document.getElementById('sec-total-comum').innerText = formatCurrency(secCom);
-            document.getElementById('sec-total-desejado').innerText = formatCurrency(secDes);
-            document.getElementById('sec-total-combined').innerText = formatCurrency(secEss+secCom+secDes);
+
+            // Atualiza DOM Seção
+            const updateSec = (cat, stats) => {
+                document.getElementById(`sec-${cat}-total`).innerText = formatCurrency(stats.total);
+                document.getElementById(`sec-${cat}-bought`).innerText = `✔ ${formatCurrency(stats.bought)}`;
+                document.getElementById(`sec-${cat}-pending`).innerText = `⏳ ${formatCurrency(stats.total - stats.bought)}`;
+            };
+
+            updateSec('ess', sEss);
+            updateSec('com', sCom);
+            updateSec('des', sDes);
+
+            const sCombTotal = sEss.total + sCom.total + sDes.total;
+            const sCombBought = sEss.bought + sCom.bought + sDes.bought;
+
+            document.getElementById('sec-combined-total').innerText = formatCurrency(sCombTotal);
+            document.getElementById('sec-combined-bought').innerText = `Pago: ${formatCurrency(sCombBought)}`;
+            document.getElementById('sec-combined-pending').innerText = `Falta: ${formatCurrency(sCombTotal - sCombBought)}`;
         }
     }
 }

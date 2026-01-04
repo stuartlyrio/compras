@@ -15,19 +15,35 @@
     <div class="global-totals">
         <div class="total-box">
             <strong title="Essenciais">Global Essenciais</strong>
-            <span id="global-essential">R$ 0,00</span>
+            <span class="main-value" id="global-essential-total">R$ 0,00</span>
+            <div class="sub-values">
+                <span class="val-bought" id="global-essential-bought">✔ R$ 0,00</span>
+                <span class="val-pending" id="global-essential-pending">⏳ R$ 0,00</span>
+            </div>
         </div>
         <div class="total-box">
             <strong title="Comuns">Global Comuns</strong>
-            <span id="global-common">R$ 0,00</span>
+            <span class="main-value" id="global-common-total">R$ 0,00</span>
+            <div class="sub-values">
+                <span class="val-bought" id="global-common-bought">✔ R$ 0,00</span>
+                <span class="val-pending" id="global-common-pending">⏳ R$ 0,00</span>
+            </div>
         </div>
         <div class="total-box">
             <strong title="Desejados">Global Desejados</strong>
-            <span id="global-desejado">R$ 0,00</span>
+            <span class="main-value" id="global-desejado-total">R$ 0,00</span>
+            <div class="sub-values">
+                <span class="val-bought" id="global-desejado-bought">✔ R$ 0,00</span>
+                <span class="val-pending" id="global-desejado-pending">⏳ R$ 0,00</span>
+            </div>
         </div>
         <div class="total-box total-main">
             <strong title="Soma de tudo">TOTAL GERAL</strong>
-            <span id="global-combined">R$ 0,00</span>
+            <span class="main-value" id="global-combined-total">R$ 0,00</span>
+            <div class="sub-values">
+                <span class="val-bought" id="global-combined-bought">✔ R$ 0,00</span>
+                <span class="val-pending" id="global-combined-pending">⏳ R$ 0,00</span>
+            </div>
         </div>
     </div>
 </header>
@@ -43,10 +59,37 @@
     <div class="section-summary-bar" id="section-summary-bar" style="display:none;">
         <div class="sec-total-label">Resumo: <span id="current-section-name-display">---</span></div>
         <div class="sec-total-values">
-            <div>Essencial: <b id="sec-total-essencial">R$ 0,00</b></div>
-            <div>Comum: <b id="sec-total-comum">R$ 0,00</b></div>
-            <div>Desejado: <b id="sec-total-desejado">R$ 0,00</b></div>
-            <div class="sec-total-final">Total Seção: <b id="sec-total-combined">R$ 0,00</b></div>
+            <div class="sec-mini-box">
+                <small>Essencial</small>
+                <div id="sec-ess-total">R$ 0,00</div>
+                <div class="sec-sub">
+                    <span class="c-green" id="sec-ess-bought">✔ 0,00</span>
+                    <span class="c-red" id="sec-ess-pending">⏳ 0,00</span>
+                </div>
+            </div>
+            <div class="sec-mini-box">
+                <small>Comum</small>
+                <div id="sec-com-total">R$ 0,00</div>
+                <div class="sec-sub">
+                    <span class="c-green" id="sec-com-bought">✔ 0,00</span>
+                    <span class="c-red" id="sec-com-pending">⏳ 0,00</span>
+                </div>
+            </div>
+            <div class="sec-mini-box">
+                <small>Desejado</small>
+                <div id="sec-des-total">R$ 0,00</div>
+                <div class="sec-sub">
+                    <span class="c-green" id="sec-des-bought">✔ 0,00</span>
+                    <span class="c-red" id="sec-des-pending">⏳ 0,00</span>
+                </div>
+            </div>
+            <div class="sec-total-final">
+                Total Seção: <b id="sec-combined-total">R$ 0,00</b>
+                <div class="sec-final-sub">
+                    <span id="sec-combined-bought">Pago: R$ 0,00</span> | 
+                    <span id="sec-combined-pending">Falta: R$ 0,00</span>
+                </div>
+            </div>
         </div>
     </div>
 </div>
