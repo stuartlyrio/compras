@@ -49,7 +49,7 @@ window.loadUserData = async (uid) => {
             wallet = data.wallet || { balance: 0, history: [] };
         } else {
             console.log("Novo usuário, criando estrutura padrão...");
-            // Inicializa estrutura padrão para NOVOS usuários (Google ou Email)
+            // Inicializa estrutura padrão para NOVOS usuários
             sections = [{
                 id: 'mobilia', name: 'Mobília e Planejamento',
                 rooms: [{ id: 'sala', name: 'Sala' }, { id: 'cozinha', name: 'Cozinha' }]
@@ -66,7 +66,6 @@ window.loadUserData = async (uid) => {
 
     } catch (e) {
         console.error("Erro ao carregar dados:", e);
-        // Não mostrar alerta intrusivo, apenas log
     }
 };
 

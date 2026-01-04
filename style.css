@@ -21,7 +21,7 @@
 * { box-sizing: border-box; font-family: 'Roboto', 'Segoe UI', sans-serif; margin: 0; padding: 0; }
 body { background-color: var(--bg-color); color: var(--text-main); padding-bottom: 50px; }
 
-/* --- LOGIN OVERLAY --- */
+/* --- TELA DE LOGIN/CADASTRO (OVERLAY) --- */
 .auth-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background-color: rgba(0, 0, 0, 0.95); z-index: 9999;
@@ -33,26 +33,34 @@ body { background-color: var(--bg-color); color: var(--text-main); padding-botto
     box-shadow: 0 0 30px rgba(96, 212, 234, 0.2); width: 90%; max-width: 400px;
 }
 .auth-box h2 { color: var(--accent-color); margin-bottom: 10px; }
-.auth-box p { color: var(--text-muted); margin-bottom: 30px; }
-.btn-google {
-    background-color: #fff; color: #333; border: none; padding: 12px 20px;
-    border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1rem;
-    display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;
-    transition: 0.2s;
-}
+.auth-box p { color: var(--text-muted); margin-bottom: 20px; }
+
+/* Inputs de Login */
+.auth-inputs { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
+.auth-input { width: 100%; padding: 12px; background: #0e0e0e; border: 1px solid var(--border-color); color: white; border-radius: 6px; outline: none; }
+.auth-input:focus { border-color: var(--accent-color); }
+
+/* Botões de Login */
+.btn-auth-action { background-color: var(--accent-color); color: #000; border: none; padding: 12px; width: 100%; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1rem; margin-bottom: 15px; }
+.btn-auth-action:hover { box-shadow: 0 0 10px var(--accent-glow); }
+
+.divider { margin: 10px 0; font-size: 0.8rem; color: var(--text-muted); }
+
+.btn-google { background-color: #fff; color: #333; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; transition: 0.2s; }
 .btn-google:hover { background-color: #f1f1f1; }
-.btn-logout {
-    background: transparent; border: 1px solid var(--pending-color); color: var(--pending-color);
-    padding: 5px 15px; border-radius: 20px; cursor: pointer; font-size: 0.8rem;
-}
-.btn-logout:hover { background: var(--pending-color); color: white; }
+
+.auth-toggle { margin-top: 20px; font-size: 0.9rem; color: var(--text-muted); }
+.auth-toggle a { color: var(--accent-color); text-decoration: none; font-weight: bold; margin-left: 5px; }
+.auth-toggle a:hover { text-decoration: underline; }
 
 /* HEADER */
 header {
-    background-color: var(--card-bg); padding: 15px; border-bottom: 1px solid var(--border-color);
-    text-align: center; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; padding: 15px 30px;
+    background-color: var(--card-bg); padding: 15px 30px; border-bottom: 1px solid var(--border-color);
+    text-align: center; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;
 }
 header h1 { color: var(--accent-color); font-weight: 300; text-transform: uppercase; font-size: 1.2rem; letter-spacing: 2px; }
+.btn-logout { background: transparent; border: 1px solid var(--pending-color); color: var(--pending-color); padding: 5px 15px; border-radius: 20px; cursor: pointer; font-size: 0.8rem; }
+.btn-logout:hover { background: var(--pending-color); color: white; }
 
 /* --- DASHBOARD GRID --- */
 .dashboard-area {
@@ -66,11 +74,9 @@ header h1 { color: var(--accent-color); font-weight: 300; text-transform: upperc
 .dashboard-card {
     background-color: var(--card-bg);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 20px;
+    border-radius: 12px; padding: 20px;
     display: flex; flex-direction: column;
 }
-
 .card-title {
     font-size: 1rem; font-weight: bold; color: var(--text-secondary); 
     border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px;
@@ -112,7 +118,6 @@ header h1 { color: var(--accent-color); font-weight: 300; text-transform: upperc
 .totals-card { border-top: 3px solid #fff; }
 .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #222; font-size: 0.9rem; }
 .main-total { border: none; font-size: 1.2rem; margin-top: 10px; padding-top: 10px; border-top: 1px solid #444; }
-
 
 /* --- SEÇÕES E CÔMODOS --- */
 .section-area { background-color: var(--card-bg); padding: 20px 0 0; border-bottom: 1px solid var(--border-color); margin-bottom: 30px; }
@@ -184,17 +189,12 @@ header h1 { color: var(--accent-color); font-weight: 300; text-transform: upperc
     transform: scale(1.1);
 }
 
-/* --- FORMULÁRIO E IA --- */
+/* --- FORMULÁRIO E ITENS --- */
 .add-form { background: #111; padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); }
 .add-form input, .add-form textarea { width: 100%; margin-bottom: 8px; padding: 8px; background: #0e0e0e; border: 1px solid #333; color: white; border-radius: 4px; outline: none;}
 .add-btn { width: 100%; margin-top: 10px; background: var(--accent-color); border: none; padding: 10px; font-weight: bold; border-radius: 4px; cursor: pointer; color: #000; }
 
-.input-group-row { display: flex; gap: 5px; margin-bottom: 8px; }
-.input-group-row input { margin-bottom: 0 !important; }
-.ai-action-btn { background: linear-gradient(135deg, #60d4ea, #4dd0e1); color: #000; border: none; border-radius: 4px; padding: 0 12px; cursor: pointer; font-weight: bold; }
-.ai-action-btn:hover { box-shadow: 0 0 10px var(--accent-glow); transform: scale(1.05); }
-
-/* --- INPUT FILE CILINDRICO --- */
+/* INPUT FILE CILINDRICO */
 .hidden-file-input { display: none; }
 .file-upload-btn { 
     display: flex; align-items: center; justify-content: center;
@@ -204,7 +204,7 @@ header h1 { color: var(--accent-color); font-weight: 300; text-transform: upperc
 .file-upload-btn:hover { background: var(--accent-color); color: #000; box-shadow: 0 0 10px var(--accent-glow); }
 .file-upload-btn i { margin-right: 5px; }
 
-/* --- LISTA E ITENS --- */
+/* LISTA DE ITENS */
 .item-list { list-style: none; margin-top: 15px; }
 .item-card { display: flex; gap: 15px; background: #111; padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #333; position: relative; border-left: 5px solid var(--toggle-off); }
 .item-card.bought { border-left-color: var(--toggle-on); background: #151f21; }
@@ -229,68 +229,3 @@ input:checked + .slider:before { transform: translateX(94px); }
 .label-comprado { left: 10px; text-align: left; display: none; color: #000; }
 input:checked + .slider .label-pendente { display: none; }
 input:checked + .slider .label-comprado { display: block; }
-
-.fa-spinner { animation: spin 1s linear infinite; }
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-/* --- NOVOS ESTILOS DE LOGIN --- */
-.auth-inputs {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 15px;
-}
-
-.auth-input {
-    width: 100%;
-    padding: 12px;
-    background: #0e0e0e;
-    border: 1px solid var(--border-color);
-    color: white;
-    border-radius: 6px;
-    outline: none;
-}
-
-.auth-input:focus {
-    border-color: var(--accent-color);
-}
-
-.btn-auth-action {
-    background-color: var(--accent-color);
-    color: #000;
-    border: none;
-    padding: 12px;
-    width: 100%;
-    border-radius: 6px;
-    font-weight: bold;
-    cursor: pointer;
-    font-size: 1rem;
-    margin-bottom: 15px;
-}
-
-.btn-auth-action:hover {
-    box-shadow: 0 0 10px var(--accent-glow);
-}
-
-.divider {
-    margin: 10px 0;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-}
-
-.auth-toggle {
-    margin-top: 20px;
-    font-size: 0.9rem;
-    color: var(--text-muted);
-}
-
-.auth-toggle a {
-    color: var(--accent-color);
-    text-decoration: none;
-    font-weight: bold;
-    margin-left: 5px;
-}
-
-.auth-toggle a:hover {
-    text-decoration: underline;
-}

@@ -45,10 +45,124 @@
 </header>
 
 <div id="app-content" style="display:none;">
+    
     <div class="dashboard-area">
-        <p style="text-align:center; padding:20px; color:#fff;">(Conteúdo do App Carregado)</p>
+        
+        <div class="dashboard-card wallet-card">
+            <div class="card-title"><i class="fas fa-wallet"></i> Minha Carteira</div>
+            <div class="wallet-display">
+                <span class="wallet-label">Saldo Disponível</span>
+                <span class="wallet-value" id="wallet-balance">R$ 0,00</span>
+            </div>
+            
+            <div class="wallet-controls">
+                <input type="text" id="trans-desc" placeholder="Descrição (ex: Salário, Dívida)">
+                <input type="number" id="trans-val" placeholder="Valor (R$)" step="0.01">
+                <div class="wallet-buttons">
+                    <button class="btn-deposit" onclick="handleTransaction('add')"><i class="fas fa-arrow-up"></i> Entrou</button>
+                    <button class="btn-withdraw" onclick="handleTransaction('remove')"><i class="fas fa-arrow-down"></i> Saiu</button>
+                </div>
+            </div>
+            
+            <ul id="wallet-history" class="wallet-history"></ul>
+        </div>
+
+        <div class="dashboard-card progress-card">
+            <div class="card-title"><i class="fas fa-chart-pie"></i> Progresso do Projeto</div>
+
+            <div class="progress-group">
+                <div class="prog-label">
+                    <span>Financeiro (Pago vs Total)</span>
+                    <span id="prog-text-finance">0%</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill fill-finance" id="bar-finance" style="width: 0%"></div>
+                </div>
+                <div class="prog-details">
+                    <span class="c-green" id="val-paid">Pago: R$ 0</span>
+                    <span class="c-red" id="val-pending">Falta: R$ 0</span>
+                </div>
+            </div>
+
+            <div class="progress-group">
+                <div class="prog-label">
+                    <span>Itens (Comprados vs Total)</span>
+                    <span id="prog-text-qty">0%</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill fill-qty" id="bar-qty" style="width: 0%"></div>
+                </div>
+                <div class="prog-details">
+                    <span class="c-green" id="qty-paid">0 itens</span>
+                    <span class="c-red" id="qty-pending">0 itens</span>
+                </div>
+            </div>
+
+            <div class="progress-group">
+                <div class="prog-label">
+                    <span>Poder de Compra (Carteira vs Custo Total)</span>
+                    <span id="prog-text-cover">0%</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill fill-cover" id="bar-cover" style="width: 0%"></div>
+                </div>
+                <div class="prog-details">
+                    <small style="color:#888;">Quanto do projeto sua carteira cobre hoje.</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-card totals-card">
+            <div class="card-title"><i class="fas fa-calculator"></i> Totais do Projeto</div>
+            <div class="total-row">
+                <span>Essencial:</span> <strong id="gl-ess">R$ 0,00</strong>
+            </div>
+            <div class="total-row">
+                <span>Comum:</span> <strong id="gl-com">R$ 0,00</strong>
+            </div>
+            <div class="total-row">
+                <span>Desejado:</span> <strong id="gl-des">R$ 0,00</strong>
+            </div>
+            <div class="total-row main-total">
+                <span>TOTAL GERAL:</span> <strong id="gl-total" style="color:var(--accent-color)">R$ 0,00</strong>
+            </div>
+        </div>
     </div>
-    <div class="container" id="main-container"></div>
+
+    <div class="section-area">
+        <div class="section-controls">
+            <input type="text" id="new-section-name" placeholder="Nova Seção (ex: Reforma, Escritório)">
+            <button onclick="addNewSection()"><i class="fas fa-folder-plus"></i> Criar</button>
+        </div>
+        
+        <nav class="section-nav" id="section-nav"></nav>
+
+        <div class="section-summary-bar" id="section-summary-bar" style="display:none;">
+            <div class="sec-total-label">Seção Atual: <span id="current-section-name-display" style="color:var(--accent-color)">---</span></div>
+            <div class="sec-total-values">
+                <div class="sec-total-final">
+                    Total Seção: <b id="sec-combined-total">R$ 0,00</b>
+                    <div class="sec-final-sub">
+                        <span class="c-green" id="sec-combined-bought">Pago: R$ 0,00</span> | 
+                        <span class="c-red" id="sec-combined-pending">Falta: R$ 0,00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="room-area-wrapper" style="display:none;">
+        <div class="room-controls">
+            <span class="control-label">Cômodos:</span>
+            <input type="text" id="new-room-name" placeholder="Novo Cômodo...">
+            <button onclick="addNewRoom()"><i class="fas fa-plus"></i> Add</button>
+            <button onclick="deleteCurrentSection()" class="delete-section-btn"><i class="fas fa-trash"></i> Excluir Seção</button>
+        </div>
+
+        <nav class="room-nav" id="room-nav"></nav>
+
+        <div class="container" id="main-container"></div>
+    </div>
 </div>
 
 <script type="module">
@@ -64,6 +178,9 @@
     } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
     import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
+    // -----------------------------------------------------------
+    // SUAS CREDENCIAIS DO FIREBASE
+    // -----------------------------------------------------------
     const firebaseConfig = {
         apiKey: "AIzaSyD4cf7vaS03FfF-Yq8qFAeXh7xFqHjTZvY",
         authDomain: "gerenciador-casa-nova-995be.firebaseapp.com",
@@ -126,14 +243,13 @@
             .catch((error) => alert("Erro ao entrar: " + error.message));
     });
 
-    // --- CADASTRO COM EMAIL (NOVO) ---
+    // --- CADASTRO COM EMAIL ---
     btnRegisterEmail.addEventListener('click', () => {
         const email = emailInput.value;
         const pass = passInput.value;
         createUserWithEmailAndPassword(auth, email, pass)
             .then((userCredential) => {
                 console.log("Usuário criado:", userCredential.user);
-                // O onAuthStateChanged vai lidar com o resto automaticamente
             })
             .catch((error) => {
                 if (error.code === 'auth/email-already-in-use') {
