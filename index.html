@@ -10,7 +10,7 @@
 <body>
 
 <header>
-    <h1>Mobília & Planejamento</h1>
+    <h1>Gestão de Casa</h1>
     
     <div class="global-totals">
         <div class="total-box">
@@ -32,14 +32,27 @@
     </div>
 </header>
 
-<div class="room-controls">
-    <input type="text" id="new-room-name" placeholder="Nome do novo cômodo (ex: Escritório)">
-    <button onclick="addNewRoom()"><i class="fas fa-plus"></i> Criar Cômodo</button>
+<div class="section-area">
+    <div class="section-controls">
+        <input type="text" id="new-section-name" placeholder="Nova Seção (ex: Reforma, Escritório)">
+        <button onclick="addNewSection()"><i class="fas fa-folder-plus"></i> Criar Seção</button>
+    </div>
+    <nav class="section-nav" id="section-nav"></nav>
 </div>
 
-<nav class="room-nav" id="room-nav"></nav>
+<div id="room-area-wrapper" style="display:none;">
+    
+    <div class="room-controls">
+        <span id="current-section-title"></span>
+        <input type="text" id="new-room-name" placeholder="Novo Cômodo nesta seção...">
+        <button onclick="addNewRoom()"><i class="fas fa-plus"></i> Add Cômodo</button>
+        <button onclick="deleteCurrentSection()" class="delete-section-btn"><i class="fas fa-trash"></i> Excluir Seção</button>
+    </div>
 
-<div class="container" id="main-container"></div>
+    <nav class="room-nav" id="room-nav"></nav>
+
+    <div class="container" id="main-container"></div>
+</div>
 
 <script src="script.js"></script>
 </body>
