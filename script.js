@@ -1,4 +1,4 @@
-// --- CHECKLISTS PADRÃO ---
+// --- DADOS E CONFIGURAÇÕES ---
 const defaultChecklists = {
     quarto: { essencial: ['Cama/Colchão', 'Travesseiros', 'Jogo de Cama', 'Guarda-roupa'], comum: ['Mesa cabeceira', 'Cortina', 'Espelho', 'Abajur', 'Tapete', 'Ventilador'] },
     sala: { essencial: ['Sofá', 'Rack', 'Iluminação'], comum: ['TV', 'Mesa centro', 'Tapete', 'Cortinas', 'Almofadas', 'Quadros'] },
@@ -7,16 +7,15 @@ const defaultChecklists = {
     area: { essencial: ['Máquina lavar', 'Varal', 'Balde', 'Vassoura/Rodo'], comum: ['Tábua passar', 'Ferro', 'Cesto', 'Armário'] }
 };
 
-// --- DADOS ---
 let sections = [];
 let houseData = {}; 
 let checklistData = {};
 let wallet = { balance: 0, history: [] };
-let investments = []; // Guardará { coinId: 'bitcoin', amount: 0.5 }
+let investments = [];
 let currentSectionId = null;
-let currentCryptoPrices = {}; // Cache de preços
+let currentCryptoPrices = {};
 
-// --- INIT ---
+// --- INICIALIZAÇÃO ---
 window.loadUserData = async (uid) => {
     try {
         const docRef = window.doc(window.db, "users", uid);
@@ -36,7 +35,7 @@ window.loadUserData = async (uid) => {
         if(sections.length > 0) switchSection(sections[0].id);
         renderSectionNav();
         updateWalletUI();
-        refreshCryptoPrices(); // Busca cotação ao logar
+        refreshCryptoPrices();
         renderCryptoList();
     } catch (e) { console.error("Erro load:", e); }
 };
@@ -57,7 +56,7 @@ function initializeRoomData(room) {
     }
 }
 
-// --- CARTEIRA (FIAT) ---
+// --- CARTEIRA & CRIPTO ---
 window.handleTransaction = (type) => {
     const descInput = document.getElementById('trans-desc');
     const valInput = document.getElementById('trans-val');
@@ -81,77 +80,48 @@ function updateWalletUI() {
     });
 }
 
-// --- CRIPTO ---
 window.addCrypto = () => {
     const coin = document.getElementById('crypto-select').value;
     const amount = parseFloat(document.getElementById('crypto-amount').value);
     if(isNaN(amount) || amount <= 0) { alert("Quantidade inválida"); return; }
-    
-    // Verifica se já tem essa moeda e soma, ou adiciona nova
     const existing = investments.find(i => i.coinId === coin);
-    if(existing) { existing.amount += amount; } 
-    else { investments.push({ coinId: coin, amount: amount }); }
-    
+    if(existing) { existing.amount += amount; } else { investments.push({ coinId: coin, amount: amount }); }
     document.getElementById('crypto-amount').value = '';
-    renderCryptoList();
-    saveData();
-    refreshCryptoPrices(); // Atualiza valor total
+    renderCryptoList(); saveData(); refreshCryptoPrices();
 };
 
 window.removeCrypto = (coinId) => {
     investments = investments.filter(i => i.coinId !== coinId);
-    renderCryptoList();
-    saveData();
-    updateCryptoTotal(); // Recalcula sem precisar chamar API de novo
+    renderCryptoList(); saveData(); updateCryptoTotal();
 };
 
 window.refreshCryptoPrices = async () => {
     const btn = document.querySelector('.refresh-btn');
     if(btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    
     try {
-        // IDs fixos para buscar
         const ids = 'bitcoin,ethereum,solana,tether,ripple'; 
         const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=brl`);
         currentCryptoPrices = await res.json();
         updateCryptoTotal();
-    } catch(e) {
-        console.error("Erro API Cripto:", e);
-    } finally {
-        if(btn) btn.innerHTML = '<i class="fas fa-sync-alt"></i>';
-    }
+    } catch(e) { console.error("Erro API Cripto:", e); } finally { if(btn) btn.innerHTML = '<i class="fas fa-sync-alt"></i>'; }
 };
 
 function updateCryptoTotal() {
     let totalBRL = 0;
     const list = document.getElementById('crypto-list');
-    if(list) list.innerHTML = ''; // Limpa para redesenhar com preços novos
-
+    if(list) list.innerHTML = ''; 
     investments.forEach(inv => {
         const price = currentCryptoPrices[inv.coinId] ? currentCryptoPrices[inv.coinId].brl : 0;
         const valBRL = inv.amount * price;
         totalBRL += valBRL;
-
-        // Renderiza lista com valor atualizado
         const li = document.createElement('li');
-        li.innerHTML = `
-            <span>${inv.coinId.toUpperCase()} (${inv.amount})</span>
-            <div style="display:flex; gap:10px; align-items:center;">
-                <span style="color:#f3ba2f;">${formatCurrency(valBRL)}</span>
-                <i class="fas fa-trash" style="cursor:pointer; color:#ef5350;" onclick="removeCrypto('${inv.coinId}')"></i>
-            </div>
-        `;
+        li.innerHTML = `<span>${inv.coinId.toUpperCase()} (${inv.amount})</span><div style="display:flex; gap:10px; align-items:center;"><span style="color:#f3ba2f;">${formatCurrency(valBRL)}</span><i class="fas fa-trash" style="cursor:pointer; color:#ef5350;" onclick="removeCrypto('${inv.coinId}')"></i></div>`;
         list.appendChild(li);
     });
-
     document.getElementById('crypto-total-brl').innerText = formatCurrency(totalBRL);
-    updateAllTotals(totalBRL); // Manda o valor cripto para somar no poder de compra
+    updateAllTotals(totalBRL);
 }
-
-function renderCryptoList() {
-    // Apenas renderiza visualmente, o updateCryptoTotal que preenche com valores
-    updateCryptoTotal(); 
-}
+function renderCryptoList() { updateCryptoTotal(); }
 
 // --- NAV & SEÇÕES ---
 function renderSectionNav() {
@@ -218,6 +188,7 @@ window.switchRoom = (roomId) => {
     updateRoomTotals(roomId);
 };
 
+// --- MODIFICADO: RENDERIZAÇÃO DE COLUNA PARA DRAG AND DROP ---
 function renderColumnHTML(r, c, t) {
     return `<div class="column">
         <h3>${t}</h3>
@@ -229,10 +200,158 @@ function renderColumnHTML(r, c, t) {
             <textarea id="in-${r}-${c}-desc" placeholder="Detalhes"></textarea>
             <input type="file" id="in-${r}-${c}-img" accept="image/*" class="hidden-file-input"><label for="in-${r}-${c}-img" class="file-upload-btn"><i class="fas fa-upload"></i> Foto</label>
             <button class="add-btn" onclick="addItem('${r}','${c}')">Adicionar</button>
-        </div><ul class="item-list" id="list-${r}-${c}"></ul></div>`;
+        </div>
+        <ul class="item-list" id="list-${r}-${c}" 
+            ondragover="allowDrop(event)" 
+            ondragleave="leaveDrop(event)" 
+            ondrop="dropItem(event, '${r}', '${c}')">
+        </ul>
+    </div>`;
 }
 
-// --- IA & ITENS ---
+// --- MODIFICADO: RENDERIZAÇÃO DE LISTA PARA CLIQUE E ARRASTE ---
+function renderLists(r, c) {
+    const ul = document.getElementById(`list-${r}-${c}`); 
+    ul.innerHTML='';
+    if(!houseData[r] || !houseData[r][c]) return;
+
+    houseData[r][c].forEach(i => {
+        const li = document.createElement('li'); 
+        const bought = i.status==='bought';
+        li.className=`item-card ${bought?'bought':''}`;
+        
+        // Drag Setup
+        li.setAttribute('draggable', 'true');
+        li.ondragstart = (e) => dragStart(e, r, c, i.id);
+        
+        // Edit Setup
+        li.onclick = () => openEditModal(r, c, i.id);
+
+        li.innerHTML=`
+        <img src="${i.img}" class="item-img">
+        <div class="item-info">
+            <span class="item-name">${i.name}</span>
+            <span class="item-price">${formatCurrency(i.price)}</span>
+            ${i.desc?`<span class="item-desc">${i.desc}</span>`:''} 
+            ${i.link?`<a href="${i.link}" target="_blank" class="item-link" onclick="event.stopPropagation()">Link</a>`:''}
+            <label class="status-switch" onclick="event.stopPropagation()">
+                <input type="checkbox" ${bought?'checked':''} onchange="toggleStatus('${r}','${c}',${i.id})">
+                <span class="slider"><span class="status-label label-comprado">COMPRADO</span><span class="status-label label-pendente">PENDENTE</span></span>
+            </label>
+        </div>
+        <button class="delete-btn" onclick="event.stopPropagation(); removeItem('${r}','${c}',${i.id})"><i class="fas fa-trash"></i></button>`;
+        ul.appendChild(li);
+    });
+}
+
+// --- NOVO: LÓGICA DE DRAG AND DROP ---
+window.dragStart = (e, r, c, id) => {
+    e.target.classList.add('dragging');
+    e.dataTransfer.setData("text/plain", JSON.stringify({ r, c, id }));
+};
+
+window.allowDrop = (e) => {
+    e.preventDefault();
+    const list = e.target.closest('ul');
+    if(list) list.classList.add('drag-over');
+};
+
+window.leaveDrop = (e) => {
+    const list = e.target.closest('ul');
+    if(list) list.classList.remove('drag-over');
+};
+
+window.dropItem = (e, targetR, targetC) => {
+    e.preventDefault();
+    const list = e.target.closest('ul');
+    if(list) list.classList.remove('drag-over');
+
+    try {
+        const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+        const { r: originR, c: originC, id: itemId } = data;
+
+        if (originR === targetR && originC === targetC) return; // Mesmo lugar
+
+        const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId);
+        if (itemIndex === -1) return;
+        
+        const item = houseData[originR][originC][itemIndex];
+        houseData[originR][originC].splice(itemIndex, 1);
+        houseData[targetR][targetC].push(item);
+
+        renderLists(originR, originC);
+        renderLists(targetR, targetC);
+        updateAllTotals();
+        saveData();
+    } catch (err) { console.error("Drop error:", err); }
+};
+
+// --- NOVO: LÓGICA DO MODAL DE EDIÇÃO ---
+window.openEditModal = (r, c, id) => {
+    const item = houseData[r][c].find(i => i.id === id);
+    if (!item) return;
+
+    document.getElementById('edit-r-origin').value = r;
+    document.getElementById('edit-c-origin').value = c;
+    document.getElementById('edit-id').value = id;
+    document.getElementById('edit-name').value = item.name;
+    document.getElementById('edit-price').value = item.price;
+    document.getElementById('edit-link').value = item.link || '';
+    document.getElementById('edit-desc').value = item.desc || '';
+
+    // Popula seleção de cômodos
+    const roomSelect = document.getElementById('edit-move-room');
+    roomSelect.innerHTML = '';
+    const currentSection = sections.find(s => s.id === currentSectionId);
+    if(currentSection) {
+        currentSection.rooms.forEach(room => {
+            const opt = document.createElement('option');
+            opt.value = room.id;
+            opt.text = room.name;
+            if(room.id === r) opt.selected = true;
+            roomSelect.appendChild(opt);
+        });
+    }
+    document.getElementById('edit-move-cat').value = c;
+    document.getElementById('edit-modal').style.display = 'flex';
+};
+
+window.closeEditModal = () => { document.getElementById('edit-modal').style.display = 'none'; };
+
+window.saveEditItem = () => {
+    const rOld = document.getElementById('edit-r-origin').value;
+    const cOld = document.getElementById('edit-c-origin').value;
+    const id = parseInt(document.getElementById('edit-id').value);
+    
+    const newName = document.getElementById('edit-name').value;
+    const newPrice = parseFloat(document.getElementById('edit-price').value);
+    const newLink = document.getElementById('edit-link').value;
+    const newDesc = document.getElementById('edit-desc').value;
+    
+    const rNew = document.getElementById('edit-move-room').value;
+    const cNew = document.getElementById('edit-move-cat').value;
+
+    const itemIndex = houseData[rOld][cOld].findIndex(i => i.id === id);
+    if (itemIndex === -1) return;
+    const item = houseData[rOld][cOld][itemIndex];
+    houseData[rOld][cOld].splice(itemIndex, 1); // Remove do antigo
+
+    item.name = newName;
+    item.price = isNaN(newPrice) ? 0 : newPrice;
+    item.link = newLink;
+    item.desc = newDesc;
+
+    if (!houseData[rNew]) initializeRoomData({id: rNew}); // Segurança
+    houseData[rNew][cNew].push(item); // Adiciona no novo
+
+    closeEditModal();
+    if (rOld !== rNew) switchRoom(rNew); // Se mudou de sala, vai pra lá
+    else { renderLists(rOld, cOld); if(cOld !== cNew) renderLists(rOld, cNew); }
+    updateAllTotals(); saveData();
+};
+
+
+// --- IA & ITENS (Antigo mantido) ---
 window.autoFillFromLink = async (r, c) => {
     const link = document.getElementById(`in-${r}-${c}-link`).value; const icon = document.getElementById(`icon-${r}-${c}`);
     if(!link) return; icon.className="fas fa-spinner fa-spin";
@@ -274,19 +393,6 @@ window.addItem = (r, c) => {
 window.removeItem = (r,c,id) => { houseData[r][c]=houseData[r][c].filter(i=>i.id!==id); renderLists(r,c); updateAllTotals(); saveData(); };
 window.toggleStatus = (r,c,id) => { const i=houseData[r][c].find(x=>x.id===id); if(i) i.status=(i.status==='bought'?'pending':'bought'); renderLists(r,c); updateAllTotals(); saveData(); };
 
-function renderLists(r, c) {
-    const ul = document.getElementById(`list-${r}-${c}`); ul.innerHTML='';
-    houseData[r][c].forEach(i => {
-        const li = document.createElement('li'); const bought = i.status==='bought';
-        li.className=`item-card ${bought?'bought':''}`;
-        li.innerHTML=`<img src="${i.img}" class="item-img"><div class="item-info"><span class="item-name">${i.name}</span><span class="item-price">${formatCurrency(i.price)}</span>
-        ${i.desc?`<span class="item-desc">${i.desc}</span>`:''} ${i.link?`<a href="${i.link}" target="_blank" class="item-link">Link</a>`:''}
-        <label class="status-switch"><input type="checkbox" ${bought?'checked':''} onchange="toggleStatus('${r}','${c}',${i.id})"><span class="slider"><span class="status-label label-comprado">COMPRADO</span><span class="status-label label-pendente">PENDENTE</span></span></label></div>
-        <button class="delete-btn" onclick="removeItem('${r}','${c}',${i.id})"><i class="fas fa-trash"></i></button>`;
-        ul.appendChild(li);
-    });
-}
-
 // --- CHECKLIST HELPERS ---
 window.addToChecklist=(r,c)=>{const v=document.getElementById(`new-check-${r}-${c}`).value.trim();if(v){checklistData[r][c].push(v);document.getElementById(`new-check-${r}-${c}`).value='';renderChecklist(r,c);saveData();}};
 window.removeCheck=(r,c,i)=>{checklistData[r][c].splice(i,1);renderChecklist(r,c);saveData();};
@@ -297,8 +403,6 @@ checklistData[r][c].forEach((it,ix)=>{if(!p.includes(it.toLowerCase().trim())){c
 // --- TOTAIS ---
 function updateRoomTotals(r) { document.getElementById(`room-stat-${r}`).innerText = "Atualizado"; }
 function updateAllTotals(cryptoVal = 0) {
-    // Se cryptoVal não foi passado (chamada normal), tentar pegar do texto (gambiarra visual) ou recalcular
-    // Melhor: recalcular sempre que possível
     let currentCryptoTotal = 0;
     investments.forEach(inv => {
         const p = currentCryptoPrices[inv.coinId] ? currentCryptoPrices[inv.coinId].brl : 0;
@@ -316,7 +420,6 @@ function updateAllTotals(cryptoVal = 0) {
     }));
     const totalCost = totals.ess+totals.com+totals.des;
     
-    // Barras
     const fPct = totalCost>0 ? (bVal/totalCost)*100 : 0;
     document.getElementById('bar-finance').style.width=`${fPct}%`; document.getElementById('prog-text-finance').innerText=`${fPct.toFixed(1)}%`;
     document.getElementById('val-paid').innerText=`Pago: ${formatCurrency(bVal)}`; document.getElementById('val-pending').innerText=`Falta: ${formatCurrency(pVal)}`;
@@ -325,17 +428,14 @@ function updateAllTotals(cryptoVal = 0) {
     document.getElementById('bar-qty').style.width=`${qPct}%`; document.getElementById('prog-text-qty').innerText=`${qPct.toFixed(1)}%`;
     document.getElementById('qty-paid').innerText=`${cBou} itens`; document.getElementById('qty-pending').innerText=`${cTot-cBou} itens`;
 
-    // Poder de Compra: Carteira + Cripto
     const totalMoney = wallet.balance + currentCryptoTotal;
     const cPct = totalCost>0 ? (totalMoney/totalCost)*100 : 0;
     const visCPct = cPct>100?100:cPct;
     document.getElementById('bar-cover').style.width=`${visCPct}%`; document.getElementById('prog-text-cover').innerText=`${cPct.toFixed(1)}%`;
 
-    // Textos
     document.getElementById('gl-ess').innerText=formatCurrency(totals.ess); document.getElementById('gl-com').innerText=formatCurrency(totals.com);
     document.getElementById('gl-des').innerText=formatCurrency(totals.des); document.getElementById('gl-total').innerText=formatCurrency(totalCost);
 
-    // Seção
     if(currentSectionId) {
         const sec=sections.find(s=>s.id===currentSectionId); let sT=0, sB=0;
         if(sec) sec.rooms.forEach(r => ['essencial','comum','desejado'].forEach(c => houseData[r.id][c].forEach(i=>{sT+=i.price; if(i.status==='bought')sB+=i.price;})));

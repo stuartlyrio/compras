@@ -88,6 +88,11 @@
                 <div class="prog-details"><span class="c-green" id="val-paid">Pago: R$ 0</span><span class="c-red" id="val-pending">Falta: R$ 0</span></div>
             </div>
             <div class="progress-group">
+                <div class="prog-label"><span>Quantidade Itens</span><span id="prog-text-qty">0%</span></div>
+                <div class="progress-track"><div class="progress-fill fill-qty" id="bar-qty" style="width: 0%"></div></div>
+                <div class="prog-details"><span class="c-green" id="qty-paid">0 itens</span><span class="c-red" id="qty-pending">0 itens</span></div>
+            </div>
+            <div class="progress-group">
                 <div class="prog-label"><span>Poder Total (Caixa + Invest)</span><span id="prog-text-cover">0%</span></div>
                 <div class="progress-track"><div class="progress-fill fill-cover" id="bar-cover" style="width: 0%"></div></div>
                 <div class="prog-details"><small style="color:#888;">Cobre o custo total do projeto?</small></div>
@@ -130,15 +135,64 @@
     </div>
 </div>
 
+<div id="edit-modal" class="auth-overlay" style="display:none; align-items:flex-start; padding-top:50px; overflow-y:auto;">
+    <div class="auth-box" style="text-align: left; max-width: 500px; width:95%; margin-bottom:50px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #333; padding-bottom:10px;">
+            <h2 style="margin:0; font-size:1.2rem;">✏️ Editar Item</h2>
+            <span onclick="closeEditModal()" style="cursor:pointer; font-size:1.5rem; color:#fff;">&times;</span>
+        </div>
+        
+        <input type="hidden" id="edit-r-origin">
+        <input type="hidden" id="edit-c-origin">
+        <input type="hidden" id="edit-id">
+
+        <label style="color:var(--accent-color); font-size:0.8rem; font-weight:bold;">Nome do Item</label>
+        <input type="text" id="edit-name" class="auth-input" style="margin-bottom:15px;">
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+            <div>
+                <label style="color:#888; font-size:0.8rem;">Preço (R$)</label>
+                <input type="number" id="edit-price" class="auth-input" style="margin-bottom:15px;" step="0.01">
+            </div>
+            <div>
+                <label style="color:#888; font-size:0.8rem;">Link / URL</label>
+                <input type="text" id="edit-link" class="auth-input" style="margin-bottom:15px;">
+            </div>
+        </div>
+
+        <label style="color:#888; font-size:0.8rem;">Descrição / Detalhes</label>
+        <textarea id="edit-desc" class="auth-input" style="margin-bottom:15px; height:80px; resize:none;"></textarea>
+
+        <div style="background:#222; padding:15px; border-radius:8px; border:1px dashed #444; margin-bottom:20px;">
+            <label style="color:var(--accent-color); font-size:0.8rem; display:block; margin-bottom:10px;">📦 Mover para outro local:</label>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <div>
+                    <span style="font-size:0.7rem; color:#888;">Cômodo</span>
+                    <select id="edit-move-room" class="auth-input" style="cursor:pointer;"></select>
+                </div>
+                <div>
+                    <span style="font-size:0.7rem; color:#888;">Categoria</span>
+                    <select id="edit-move-cat" class="auth-input" style="cursor:pointer;">
+                        <option value="essencial">Essencial</option>
+                        <option value="comum">Comum</option>
+                        <option value="desejado">Desejado</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <button onclick="saveEditItem()" class="btn-auth-action" style="background:var(--success-color); color:#000;">Salvar Alterações</button>
+        <button onclick="closeEditModal()" class="btn-auth-action" style="background:#333; margin-top:10px;">Cancelar</button>
+    </div>
+</div>
+
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
     import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
     import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    // -----------------------------------------------------------
-    // SUA CONFIGURAÇÃO EXATA DO FIREBASE
-    // -----------------------------------------------------------
+    // CONFIGURAÇÃO FIREBASE
     const firebaseConfig = {
       apiKey: "AIzaSyD4cf7vaS03FfF-Yq8qFAeXh7xFqHjTZvY",
       authDomain: "gerenciador-casa-nova-995be.firebaseapp.com",
@@ -149,24 +203,21 @@
       measurementId: "G-23EQ6DCPEJ"
     };
 
-    // Inicializando Firebase
     const app = initializeApp(firebaseConfig);
     const analytics = getAnalytics(app);
     const auth = getAuth(app);
     const db = getFirestore(app);
     const provider = new GoogleAuthProvider();
 
-    // Exportando para o script.js
     window.db = db; window.auth = auth; window.doc = doc; window.getDoc = getDoc; window.setDoc = setDoc; window.currentUser = null;
 
-    // LÓGICA UI LOGIN
+    // LÓGICA LOGIN
     const btnLogin = document.getElementById('btn-login-google');
     const overlay = document.getElementById('auth-overlay');
     const appContent = document.getElementById('app-content');
     const userNameSpan = document.getElementById('user-name');
     const userInfoDiv = document.getElementById('user-info');
     
-    // Toggle Login/Cadastro
     const emailInput = document.getElementById('auth-email');
     const passInput = document.getElementById('auth-pass');
     let isLoginMode = true;
@@ -188,7 +239,6 @@
     btnLogin.addEventListener('click', () => signInWithPopup(auth, provider).catch(e => alert(e.message)));
     window.logout = () => signOut(auth).then(() => location.reload());
 
-    // Monitora Login
     onAuthStateChanged(auth, async (user) => {
         if (user) {
             window.currentUser = user;
