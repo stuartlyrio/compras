@@ -163,6 +163,16 @@
         <label style="color:#888; font-size:0.8rem;">Descrição / Detalhes</label>
         <textarea id="edit-desc" class="auth-input" style="margin-bottom:15px; height:80px; resize:none;"></textarea>
 
+        <div style="background:#222; padding:15px; border-radius:8px; border:1px solid #333; margin-bottom:15px;">
+            <label style="color:#fff; font-size:0.8rem; display:block; margin-bottom:10px;">📸 Galeria de Imagens:</label>
+            
+            <div id="edit-gallery-container" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+                </div>
+
+            <input type="file" id="edit-add-img-input" accept="image/*" multiple style="display:none">
+            <label for="edit-add-img-input" class="file-upload-btn" style="width:100%;"><i class="fas fa-plus"></i> Adicionar Mais Fotos</label>
+        </div>
+
         <div style="background:#222; padding:15px; border-radius:8px; border:1px dashed #444; margin-bottom:20px;">
             <label style="color:var(--accent-color); font-size:0.8rem; display:block; margin-bottom:10px;">📦 Mover para outro local:</label>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">

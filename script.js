@@ -13,12 +13,13 @@ let checklistData = {};
 let wallet = { balance: 0, history: [] };
 let investments = [];
 let currentSectionId = null;
-let currentRoomId = null; // Guardamos o comodo atual globalmente
+let currentRoomId = null;
 let currentCryptoPrices = {};
 
-// Variáveis para Clonar (Ctrl+C / Ctrl+V)
-let appClipboard = null; // Guarda o item copiado
-let hoveredItemData = null; // Guarda qual item o mouse está em cima
+// Variáveis Globais
+let appClipboard = null;
+let hoveredItemData = null;
+let tempEditImages = []; // Armazena fotos durante a edição
 
 // --- INICIALIZAÇÃO ---
 window.loadUserData = async (uid) => {
@@ -42,7 +43,8 @@ window.loadUserData = async (uid) => {
         updateWalletUI();
         refreshCryptoPrices();
         renderCryptoList();
-        setupKeyboardShortcuts(); // Inicia monitoramento de teclas
+        setupKeyboardShortcuts();
+        setupEditModalImageInput();
     } catch (e) { console.error("Erro load:", e); }
 };
 
@@ -129,7 +131,7 @@ function updateCryptoTotal() {
 }
 function renderCryptoList() { updateCryptoTotal(); }
 
-// --- NAV & SEÇÕES ---
+// --- NAV & SEÇÕES & CÔMODOS ---
 function renderSectionNav() {
     const nav = document.getElementById('section-nav'); nav.innerHTML = '';
     sections.forEach(sec => {
@@ -160,50 +162,30 @@ window.deleteCurrentSection = () => {
     updateAllTotals(); saveData();
 };
 
-// --- CÔMODOS E NAVEGAÇÃO ---
 function renderRoomsNav() {
     const nav = document.getElementById('room-nav'); nav.innerHTML = '';
     const sec = sections.find(s=>s.id===currentSectionId); if(!sec) return;
-    
     sec.rooms.forEach(room => {
-        const btn = document.createElement('button'); 
-        btn.className = 'room-btn'; 
-        btn.innerText = room.name;
-        
-        // Clique normal
-        btn.onclick = () => switchRoom(room.id); 
-        btn.dataset.target = room.id;
-
-        // --- ATUALIZAÇÃO 1: DROP ZONE NOS BOTÕES DE NAVEGAÇÃO ---
-        // Permite soltar um item em cima do botão para mudar de sala
-        btn.ondragover = (e) => {
-            e.preventDefault();
-            btn.classList.add('drag-over-tab');
-        };
-        btn.ondragleave = (e) => {
-            btn.classList.remove('drag-over-tab');
-        };
+        const btn = document.createElement('button'); btn.className = 'room-btn'; btn.innerText = room.name;
+        btn.onclick = () => switchRoom(room.id); btn.dataset.target = room.id;
+        btn.ondragover = (e) => { e.preventDefault(); btn.classList.add('drag-over-tab'); };
+        btn.ondragleave = (e) => { btn.classList.remove('drag-over-tab'); };
         btn.ondrop = (e) => dropOnRoom(e, room.id);
-
         nav.appendChild(btn);
     });
 }
-
 window.addNewRoom = () => {
     if(!currentSectionId) return; const name = document.getElementById('new-room-name').value.trim(); if(!name) return;
     const id = name.toLowerCase().replace(/[^a-z0-9]/g,'')+'-'+Date.now();
     sections.find(s=>s.id===currentSectionId).rooms.push({id, name});
     initializeRoomData({id, name}); document.getElementById('new-room-name').value=''; renderRoomsNav(); switchRoom(id); updateAllTotals(); saveData();
 };
-
 window.switchRoom = (roomId) => {
-    currentRoomId = roomId; // Atualiza a variável global
+    currentRoomId = roomId;
     document.querySelectorAll('.room-btn').forEach(b=>b.classList.remove('active'));
     const btn = document.querySelector(`button[data-target="${roomId}"]`); if(btn) btn.classList.add('active');
-    
     const container = document.getElementById('main-container');
     const roomName = btn ? btn.innerText : 'Cômodo';
-    
     container.innerHTML = `
         <div class="room-section active" id="section-${roomId}">
             <div class="room-header"><h2>${roomName}</h2><div class="room-stats"><span id="room-stat-${roomId}"></span></div></div>
@@ -218,9 +200,7 @@ window.switchRoom = (roomId) => {
     updateRoomTotals(roomId);
 };
 
-// --- DRAG AND DROP AVANÇADO ---
-
-// Renderiza a estrutura da coluna (com os eventos de Drop)
+// --- RENDERIZAÇÃO E ADD ITEM ---
 function renderColumnHTML(r, c, t) {
     return `<div class="column">
         <h3>${t}</h3>
@@ -230,7 +210,10 @@ function renderColumnHTML(r, c, t) {
             <div class="input-group-row"><input type="text" id="in-${r}-${c}-link" placeholder="Link"><button class="ai-action-btn" onclick="autoFillFromLink('${r}','${c}')" title="IA"><i class="fas fa-magic" id="icon-${r}-${c}"></i></button></div>
             <input type="text" id="in-${r}-${c}-name" placeholder="Nome"><input type="number" id="in-${r}-${c}-price" placeholder="R$" step="0.01">
             <textarea id="in-${r}-${c}-desc" placeholder="Detalhes"></textarea>
-            <input type="file" id="in-${r}-${c}-img" accept="image/*" class="hidden-file-input"><label for="in-${r}-${c}-img" class="file-upload-btn"><i class="fas fa-upload"></i> Foto</label>
+            
+            <input type="file" id="in-${r}-${c}-img" accept="image/*" multiple class="hidden-file-input">
+            <label for="in-${r}-${c}-img" class="file-upload-btn"><i class="fas fa-images"></i> Fotos (Várias)</label>
+
             <button class="add-btn" onclick="addItem('${r}','${c}')">Adicionar</button>
         </div>
         <ul class="item-list" id="list-${r}-${c}" 
@@ -241,7 +224,33 @@ function renderColumnHTML(r, c, t) {
     </div>`;
 }
 
-// Renderiza os itens (com suporte a Drag e Hover para Ctrl+C)
+// LÓGICA DO CARROSSEL DE IMAGENS
+window.changeImage = (e, direction, r, c, itemId) => {
+    e.stopPropagation(); // Não abrir modal
+    const item = houseData[r][c].find(i => i.id === itemId);
+    if (!item) return;
+
+    // Normaliza para array (caso antigo)
+    const imgs = Array.isArray(item.imgs) ? item.imgs : (item.img ? [item.img] : ['https://via.placeholder.com/150/000/fff?text=Sem+Foto']);
+    
+    // Pega o elemento da imagem no DOM
+    const imgEl = document.getElementById(`img-el-${itemId}`);
+    let currentIndex = parseInt(imgEl.dataset.index) || 0;
+    
+    // Calcula novo index
+    let newIndex = currentIndex + direction;
+    if (newIndex >= imgs.length) newIndex = 0;
+    if (newIndex < 0) newIndex = imgs.length - 1;
+
+    // Atualiza DOM
+    imgEl.src = imgs[newIndex];
+    imgEl.dataset.index = newIndex;
+    
+    // Atualiza contador
+    const countEl = document.getElementById(`img-count-${itemId}`);
+    if(countEl) countEl.innerText = `${newIndex + 1}/${imgs.length}`;
+};
+
 function renderLists(r, c) {
     const ul = document.getElementById(`list-${r}-${c}`); 
     ul.innerHTML='';
@@ -251,26 +260,32 @@ function renderLists(r, c) {
         const li = document.createElement('li'); 
         const bought = i.status==='bought';
         li.className=`item-card ${bought?'bought':''}`;
-        
-        // Drag Setup
         li.setAttribute('draggable', 'true');
         li.ondragstart = (e) => dragStart(e, r, c, i.id);
-        
-        // Edit Setup (Clique)
         li.onclick = () => openEditModal(r, c, i.id);
-
-        // --- ATUALIZAÇÃO 2: TRACKING PARA CTRL+C ---
-        // Monitora se o mouse está em cima para saber qual item copiar
         li.onmouseenter = () => { hoveredItemData = { r, c, item: i }; };
         li.onmouseleave = () => { hoveredItemData = null; };
 
+        // PREPARAÇÃO DAS IMAGENS
+        const images = Array.isArray(i.imgs) && i.imgs.length > 0 
+            ? i.imgs 
+            : (i.img ? [i.img] : ['https://via.placeholder.com/150/000/fff?text=Sem+Foto']);
+        
+        const showArrows = images.length > 1;
+
         li.innerHTML=`
-        <img src="${i.img}" class="item-img">
+        <div class="carousel-wrapper">
+            ${showArrows ? `<button class="carousel-btn prev-btn" onclick="changeImage(event, -1, '${r}', '${c}', ${i.id})">❮</button>` : ''}
+            <img src="${images[0]}" class="item-img" id="img-el-${i.id}" data-index="0">
+            ${showArrows ? `<button class="carousel-btn next-btn" onclick="changeImage(event, 1, '${r}', '${c}', ${i.id})">❯</button>` : ''}
+            ${showArrows ? `<span class="img-counter" id="img-count-${i.id}">1/${images.length}</span>` : ''}
+        </div>
+
         <div class="item-info">
             <span class="item-name">${i.name}</span>
             <span class="item-price">${formatCurrency(i.price)}</span>
             ${i.desc?`<span class="item-desc">${i.desc}</span>`:''} 
-            ${i.link?`<a href="${i.link}" target="_blank" class="item-link" onclick="event.stopPropagation()">Link</a>`:''}
+            ${i.link?`<a href="${i.link}" target="_blank" class="item-link" onclick="event.stopPropagation()">Link <i class="fas fa-external-link-alt"></i></a>`:''}
             <label class="status-switch" onclick="event.stopPropagation()">
                 <input type="checkbox" ${bought?'checked':''} onchange="toggleStatus('${r}','${c}',${i.id})">
                 <span class="slider"><span class="status-label label-comprado">COMPRADO</span><span class="status-label label-pendente">PENDENTE</span></span>
@@ -281,197 +296,58 @@ function renderLists(r, c) {
     });
 }
 
-// Lógica de Inicio de Arraste
-window.dragStart = (e, r, c, id) => {
-    e.target.classList.add('dragging');
-    e.dataTransfer.setData("text/plain", JSON.stringify({ r, c, id }));
-};
+// --- ADD ITEM COM MÚLTIPLOS ARQUIVOS ---
+window.addItem = async (r, c) => {
+    const name = document.getElementById(`in-${r}-${c}-name`).value.trim();
+    const price = parseFloat(document.getElementById(`in-${r}-${c}-price`).value);
+    const desc = document.getElementById(`in-${r}-${c}-desc`).value;
+    const link = document.getElementById(`in-${r}-${c}-link`).value;
+    const fileIn = document.getElementById(`in-${r}-${c}-img`);
+    const files = fileIn.files; // Lista de arquivos
+    const remote = fileIn.getAttribute('data-remote');
 
-// Permitir Drop visualmente
-window.allowDrop = (e) => {
-    e.preventDefault();
-    const list = e.target.closest('ul');
-    if(list) list.classList.add('drag-over');
-};
+    if(!name || isNaN(price)) { alert("Nome e Preço são obrigatórios!"); return; }
 
-window.leaveDrop = (e) => {
-    const list = e.target.closest('ul');
-    if(list) list.classList.remove('drag-over');
-};
-
-// Drop dentro da MESMA tela (entre colunas)
-window.dropItem = (e, targetR, targetC) => {
-    e.preventDefault();
-    const list = e.target.closest('ul');
-    if(list) list.classList.remove('drag-over');
-
-    try {
-        const data = JSON.parse(e.dataTransfer.getData("text/plain"));
-        const { r: originR, c: originC, id: itemId } = data;
-
-        if (originR === targetR && originC === targetC) return; 
-
-        const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId);
-        if (itemIndex === -1) return;
-        
-        const item = houseData[originR][originC][itemIndex];
-        houseData[originR][originC].splice(itemIndex, 1);
-        houseData[targetR][targetC].push(item);
-
-        renderLists(originR, originC);
-        renderLists(targetR, targetC);
-        updateAllTotals();
-        saveData();
-    } catch (err) { console.error("Drop error:", err); }
-};
-
-// --- ATUALIZAÇÃO 3: DROP EM OUTRO CÔMODO (NO BOTÃO DA ABA) ---
-window.dropOnRoom = (e, targetRoomId) => {
-    e.preventDefault();
-    // Remove o efeito visual do botão
-    const btn = document.querySelector(`button[data-target="${targetRoomId}"]`);
-    if(btn) btn.classList.remove('drag-over-tab');
-
-    try {
-        const data = JSON.parse(e.dataTransfer.getData("text/plain"));
-        const { r: originR, c: originC, id: itemId } = data;
-
-        if (originR === targetRoomId) return; // Se for o mesmo cômodo, ignora
-
-        // Encontra e remove do original
-        const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId);
-        if (itemIndex === -1) return;
-        
-        const item = houseData[originR][originC][itemIndex];
-        houseData[originR][originC].splice(itemIndex, 1);
-
-        // Adiciona no cômodo alvo (Mantém a mesma categoria: essencial/comum/desejado)
-        // Se a categoria não existir (erro de dados), joga em essencial
-        const targetCat = houseData[targetRoomId][originC] ? originC : 'essencial';
-        houseData[targetRoomId][targetCat].push(item);
-
-        // Atualiza a tela atual (remove o item que saiu)
-        renderLists(originR, originC);
-        
-        // Salva e notifica
-        showToast(`Item movido para ${sections.find(s=>s.id===currentSectionId).rooms.find(rm=>rm.id===targetRoomId).name}`);
-        updateAllTotals();
-        saveData();
-
-    } catch (err) { console.error("Room Drop error:", err); }
-};
-
-
-// --- ATUALIZAÇÃO 4: CTRL+C e CTRL+V ---
-function setupKeyboardShortcuts() {
-    document.addEventListener('keydown', (e) => {
-        // Copiar (Ctrl + C)
-        if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-            if (hoveredItemData) {
-                // Clona o objeto (para não manter referência)
-                appClipboard = JSON.parse(JSON.stringify(hoveredItemData));
-                showToast(`Copiado: ${appClipboard.item.name}`);
-            }
+    const processFiles = async () => {
+        if (files.length > 0) {
+            const promises = Array.from(files).map(file => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(file);
+                });
+            });
+            return Promise.all(promises);
+        } else if (remote) {
+            return [remote];
+        } else {
+            return ['https://via.placeholder.com/150/000/fff?text=Sem+Foto'];
         }
+    };
 
-        // Colar (Ctrl + V)
-        if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-            if (appClipboard && currentRoomId) {
-                // Verifica se tem dados na área de transferência
-                // Cria um novo ID e reseta status
-                const newItem = { ...appClipboard.item, id: Date.now(), status: 'pending', name: appClipboard.item.name + ' (Cópia)' };
-                
-                // Tenta colar na mesma categoria de origem (Ex: Essencial), senão vai pro padrão
-                const targetCat = appClipboard.c;
-                
-                if (houseData[currentRoomId] && houseData[currentRoomId][targetCat]) {
-                    houseData[currentRoomId][targetCat].push(newItem);
-                    renderLists(currentRoomId, targetCat);
-                    updateAllTotals();
-                    saveData();
-                    showToast(`Colado em ${targetCat}`);
-                }
-            }
-        }
+    const finalImages = await processFiles();
+
+    houseData[r][c].push({ 
+        id: Date.now(), 
+        name, 
+        price, 
+        desc, 
+        link, 
+        imgs: finalImages, // Salva array agora
+        status: 'pending' 
     });
-}
 
-// Helper para notificação visual
-function showToast(msg) {
-    const div = document.createElement('div');
-    div.className = 'toast-notification';
-    div.innerHTML = `<i class="fas fa-check-circle" style="color:#4CAF50;"></i> ${msg}`;
-    document.body.appendChild(div);
-    // Remove do DOM após a animação (3s)
-    setTimeout(() => { div.remove(); }, 3000);
-}
+    document.getElementById(`in-${r}-${c}-name`).value=''; 
+    document.getElementById(`in-${r}-${c}-price`).value='';
+    document.getElementById(`in-${r}-${c}-desc`).value=''; 
+    document.getElementById(`in-${r}-${c}-link`).value='';
+    fileIn.value=''; 
+    fileIn.removeAttribute('data-remote');
+    document.querySelector(`label[for="in-${r}-${c}-img"]`).innerHTML = '<i class="fas fa-images"></i> Fotos (Várias)';
 
-
-// --- LÓGICA DO MODAL DE EDIÇÃO ---
-window.openEditModal = (r, c, id) => {
-    const item = houseData[r][c].find(i => i.id === id);
-    if (!item) return;
-
-    document.getElementById('edit-r-origin').value = r;
-    document.getElementById('edit-c-origin').value = c;
-    document.getElementById('edit-id').value = id;
-    document.getElementById('edit-name').value = item.name;
-    document.getElementById('edit-price').value = item.price;
-    document.getElementById('edit-link').value = item.link || '';
-    document.getElementById('edit-desc').value = item.desc || '';
-
-    const roomSelect = document.getElementById('edit-move-room');
-    roomSelect.innerHTML = '';
-    const currentSection = sections.find(s => s.id === currentSectionId);
-    if(currentSection) {
-        currentSection.rooms.forEach(room => {
-            const opt = document.createElement('option');
-            opt.value = room.id;
-            opt.text = room.name;
-            if(room.id === r) opt.selected = true;
-            roomSelect.appendChild(opt);
-        });
-    }
-    document.getElementById('edit-move-cat').value = c;
-    document.getElementById('edit-modal').style.display = 'flex';
+    renderLists(r, c); updateAllTotals(); saveData();
 };
 
-window.closeEditModal = () => { document.getElementById('edit-modal').style.display = 'none'; };
-
-window.saveEditItem = () => {
-    const rOld = document.getElementById('edit-r-origin').value;
-    const cOld = document.getElementById('edit-c-origin').value;
-    const id = parseInt(document.getElementById('edit-id').value);
-    
-    const newName = document.getElementById('edit-name').value;
-    const newPrice = parseFloat(document.getElementById('edit-price').value);
-    const newLink = document.getElementById('edit-link').value;
-    const newDesc = document.getElementById('edit-desc').value;
-    
-    const rNew = document.getElementById('edit-move-room').value;
-    const cNew = document.getElementById('edit-move-cat').value;
-
-    const itemIndex = houseData[rOld][cOld].findIndex(i => i.id === id);
-    if (itemIndex === -1) return;
-    const item = houseData[rOld][cOld][itemIndex];
-    houseData[rOld][cOld].splice(itemIndex, 1); // Remove do antigo
-
-    item.name = newName;
-    item.price = isNaN(newPrice) ? 0 : newPrice;
-    item.link = newLink;
-    item.desc = newDesc;
-
-    if (!houseData[rNew]) initializeRoomData({id: rNew});
-    houseData[rNew][cNew].push(item);
-
-    closeEditModal();
-    if (rOld !== rNew) switchRoom(rNew); 
-    else { renderLists(rOld, cOld); if(cOld !== cNew) renderLists(rOld, cNew); }
-    updateAllTotals(); saveData();
-};
-
-
-// --- IA & ITENS ---
 window.autoFillFromLink = async (r, c) => {
     const link = document.getElementById(`in-${r}-${c}-link`).value; const icon = document.getElementById(`icon-${r}-${c}`);
     if(!link) return; icon.className="fas fa-spinner fa-spin";
@@ -484,34 +360,178 @@ window.autoFillFromLink = async (r, c) => {
             if(m.description) document.getElementById(`in-${r}-${c}-desc`).value = m.description;
             if(m.image?.url) {
                 const imgIn = document.getElementById(`in-${r}-${c}-img`); imgIn.setAttribute('data-remote', m.image.url);
-                document.querySelector(`label[for="in-${r}-${c}-img"]`).innerHTML = '<i class="fas fa-check"></i> Foto IA';
+                document.querySelector(`label[for="in-${r}-${c}-img"]`).innerHTML = '<i class="fas fa-check"></i> Foto IA Encontrada';
             }
         }
     } catch(e) { console.error(e); } finally { icon.className="fas fa-magic"; }
 };
 
-window.addItem = (r, c) => {
-    const name = document.getElementById(`in-${r}-${c}-name`).value.trim();
-    const price = parseFloat(document.getElementById(`in-${r}-${c}-price`).value);
-    const desc = document.getElementById(`in-${r}-${c}-desc`).value;
-    const link = document.getElementById(`in-${r}-${c}-link`).value;
-    const fileIn = document.getElementById(`in-${r}-${c}-img`);
-    const file = fileIn.files[0]; const remote = fileIn.getAttribute('data-remote');
-
-    if(!name || isNaN(price)) { alert("Nome/Preço?"); return; }
-    const save = (img) => {
-        houseData[r][c].push({ id: Date.now(), name, price, desc, link, img, status: 'pending' });
-        document.getElementById(`in-${r}-${c}-name`).value=''; document.getElementById(`in-${r}-${c}-price`).value='';
-        document.getElementById(`in-${r}-${c}-desc`).value=''; document.getElementById(`in-${r}-${c}-link`).value='';
-        fileIn.value=''; fileIn.removeAttribute('data-remote');
-        renderLists(r, c); updateAllTotals(); saveData();
-    };
-    if(file) { const rd = new FileReader(); rd.onload=e=>save(e.target.result); rd.readAsDataURL(file); }
-    else if(remote) save(remote); else save('https://via.placeholder.com/60/000/fff?text=Foto');
-};
-
 window.removeItem = (r,c,id) => { houseData[r][c]=houseData[r][c].filter(i=>i.id!==id); renderLists(r,c); updateAllTotals(); saveData(); };
 window.toggleStatus = (r,c,id) => { const i=houseData[r][c].find(x=>x.id===id); if(i) i.status=(i.status==='bought'?'pending':'bought'); renderLists(r,c); updateAllTotals(); saveData(); };
+
+// --- DRAG AND DROP ---
+window.dragStart = (e, r, c, id) => {
+    e.target.classList.add('dragging');
+    e.dataTransfer.setData("text/plain", JSON.stringify({ r, c, id }));
+};
+window.allowDrop = (e) => { e.preventDefault(); const list = e.target.closest('ul'); if(list) list.classList.add('drag-over'); };
+window.leaveDrop = (e) => { const list = e.target.closest('ul'); if(list) list.classList.remove('drag-over'); };
+
+window.dropItem = (e, targetR, targetC) => {
+    e.preventDefault(); const list = e.target.closest('ul'); if(list) list.classList.remove('drag-over');
+    try {
+        const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+        const { r: originR, c: originC, id: itemId } = data;
+        if (originR === targetR && originC === targetC) return; 
+        const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId); if (itemIndex === -1) return;
+        const item = houseData[originR][originC][itemIndex];
+        houseData[originR][originC].splice(itemIndex, 1);
+        houseData[targetR][targetC].push(item);
+        renderLists(originR, originC); renderLists(targetR, targetC); updateAllTotals(); saveData();
+    } catch (err) { console.error("Drop error:", err); }
+};
+
+window.dropOnRoom = (e, targetRoomId) => {
+    e.preventDefault(); const btn = document.querySelector(`button[data-target="${targetRoomId}"]`); if(btn) btn.classList.remove('drag-over-tab');
+    try {
+        const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+        const { r: originR, c: originC, id: itemId } = data;
+        if (originR === targetRoomId) return; 
+        const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId); if (itemIndex === -1) return;
+        const item = houseData[originR][originC][itemIndex];
+        houseData[originR][originC].splice(itemIndex, 1);
+        const targetCat = houseData[targetRoomId][originC] ? originC : 'essencial';
+        houseData[targetRoomId][targetCat].push(item);
+        renderLists(originR, originC);
+        showToast(`Item movido para ${sections.find(s=>s.id===currentSectionId).rooms.find(rm=>rm.id===targetRoomId).name}`);
+        updateAllTotals(); saveData();
+    } catch (err) { console.error("Room Drop error:", err); }
+};
+
+// --- CTRL+C e CTRL+V ---
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+            if (hoveredItemData) {
+                appClipboard = JSON.parse(JSON.stringify(hoveredItemData));
+                showToast(`Copiado: ${appClipboard.item.name}`);
+            }
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+            if (appClipboard && currentRoomId) {
+                const newItem = { ...appClipboard.item, id: Date.now(), status: 'pending', name: appClipboard.item.name + ' (Cópia)' };
+                const targetCat = appClipboard.c;
+                if (houseData[currentRoomId] && houseData[currentRoomId][targetCat]) {
+                    houseData[currentRoomId][targetCat].push(newItem);
+                    renderLists(currentRoomId, targetCat);
+                    updateAllTotals(); saveData(); showToast(`Colado em ${targetCat}`);
+                }
+            }
+        }
+    });
+}
+function showToast(msg) {
+    const div = document.createElement('div'); div.className = 'toast-notification';
+    div.innerHTML = `<i class="fas fa-check-circle" style="color:#4CAF50;"></i> ${msg}`;
+    document.body.appendChild(div); setTimeout(() => { div.remove(); }, 3000);
+}
+
+// --- MODAL DE EDIÇÃO E GERENCIAMENTO DE IMAGENS ---
+window.openEditModal = (r, c, id) => {
+    const item = houseData[r][c].find(i => i.id === id); if (!item) return;
+
+    // Normaliza imagens
+    tempEditImages = Array.isArray(item.imgs) && item.imgs.length > 0 ? [...item.imgs] : (item.img ? [item.img] : []);
+
+    document.getElementById('edit-r-origin').value = r;
+    document.getElementById('edit-c-origin').value = c;
+    document.getElementById('edit-id').value = id;
+    document.getElementById('edit-name').value = item.name;
+    document.getElementById('edit-price').value = item.price;
+    document.getElementById('edit-link').value = item.link || '';
+    document.getElementById('edit-desc').value = item.desc || '';
+
+    // Renderiza Galeria no Modal
+    renderEditGallery();
+
+    const roomSelect = document.getElementById('edit-move-room'); roomSelect.innerHTML = '';
+    const currentSection = sections.find(s => s.id === currentSectionId);
+    if(currentSection) { currentSection.rooms.forEach(room => { const opt = document.createElement('option'); opt.value = room.id; opt.text = room.name; if(room.id === r) opt.selected = true; roomSelect.appendChild(opt); }); }
+    document.getElementById('edit-move-cat').value = c;
+    document.getElementById('edit-modal').style.display = 'flex';
+};
+
+window.renderEditGallery = () => {
+    const container = document.getElementById('edit-gallery-container');
+    container.innerHTML = '';
+    tempEditImages.forEach((img, idx) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'edit-thumb-wrapper';
+        wrapper.innerHTML = `
+            <img src="${img}" class="edit-thumb">
+            <button class="edit-remove-img" onclick="removeEditImage(${idx})">&times;</button>
+        `;
+        container.appendChild(wrapper);
+    });
+};
+
+window.removeEditImage = (idx) => {
+    tempEditImages.splice(idx, 1);
+    renderEditGallery();
+};
+
+function setupEditModalImageInput() {
+    const input = document.getElementById('edit-add-img-input');
+    input.addEventListener('change', async (e) => {
+        const files = e.target.files;
+        if(files.length > 0) {
+            const promises = Array.from(files).map(file => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result);
+                    reader.readAsDataURL(file);
+                });
+            });
+            const newImages = await Promise.all(promises);
+            tempEditImages = [...tempEditImages, ...newImages];
+            renderEditGallery();
+        }
+        input.value = ''; // Reset input
+    });
+}
+
+window.closeEditModal = () => { document.getElementById('edit-modal').style.display = 'none'; };
+
+window.saveEditItem = () => {
+    const rOld = document.getElementById('edit-r-origin').value;
+    const cOld = document.getElementById('edit-c-origin').value;
+    const id = parseInt(document.getElementById('edit-id').value);
+    
+    const rNew = document.getElementById('edit-move-room').value;
+    const cNew = document.getElementById('edit-move-cat').value;
+    
+    // Remove do antigo
+    const itemIndex = houseData[rOld][cOld].findIndex(i => i.id === id); if (itemIndex === -1) return;
+    const item = houseData[rOld][cOld][itemIndex];
+    houseData[rOld][cOld].splice(itemIndex, 1); 
+
+    // Atualiza Propriedades
+    item.name = document.getElementById('edit-name').value;
+    item.price = parseFloat(document.getElementById('edit-price').value) || 0;
+    item.link = document.getElementById('edit-link').value;
+    item.desc = document.getElementById('edit-desc').value;
+    
+    // Salva as imagens editadas
+    item.imgs = tempEditImages.length > 0 ? tempEditImages : ['https://via.placeholder.com/150/000/fff?text=Sem+Foto'];
+
+    // Adiciona no novo local
+    if (!houseData[rNew]) initializeRoomData({id: rNew});
+    houseData[rNew][cNew].push(item);
+
+    closeEditModal();
+    if (rOld !== rNew) switchRoom(rNew); else { renderLists(rOld, cOld); if(cOld !== cNew) renderLists(rOld, cNew); }
+    updateAllTotals(); saveData();
+};
 
 // --- CHECKLIST HELPERS ---
 window.addToChecklist=(r,c)=>{const v=document.getElementById(`new-check-${r}-${c}`).value.trim();if(v){checklistData[r][c].push(v);document.getElementById(`new-check-${r}-${c}`).value='';renderChecklist(r,c);saveData();}};
@@ -523,43 +543,14 @@ checklistData[r][c].forEach((it,ix)=>{if(!p.includes(it.toLowerCase().trim())){c
 // --- TOTAIS ---
 function updateRoomTotals(r) { document.getElementById(`room-stat-${r}`).innerText = "Atualizado"; }
 function updateAllTotals(cryptoVal = 0) {
-    let currentCryptoTotal = 0;
-    investments.forEach(inv => {
-        const p = currentCryptoPrices[inv.coinId] ? currentCryptoPrices[inv.coinId].brl : 0;
-        currentCryptoTotal += (inv.amount * p);
-    });
-
+    let currentCryptoTotal = 0; investments.forEach(inv => { const p = currentCryptoPrices[inv.coinId] ? currentCryptoPrices[inv.coinId].brl : 0; currentCryptoTotal += (inv.amount * p); });
     let totals = { ess: 0, com: 0, des: 0 }; let bVal=0, pVal=0; let cTot=0, cBou=0;
-    sections.forEach(sec => sec.rooms.forEach(r => {
-        if(houseData[r.id]) ['essencial','comum','desejado'].forEach(cat => {
-            houseData[r.id][cat].forEach(i => {
-                if(cat==='essencial') totals.ess+=i.price; if(cat==='comum') totals.com+=i.price; if(cat==='desejado') totals.des+=i.price;
-                if(i.status==='bought') { bVal+=i.price; cBou++; } else { pVal+=i.price; } cTot++;
-            });
-        });
-    }));
+    sections.forEach(sec => sec.rooms.forEach(r => { if(houseData[r.id]) ['essencial','comum','desejado'].forEach(cat => { houseData[r.id][cat].forEach(i => { if(cat==='essencial') totals.ess+=i.price; if(cat==='comum') totals.com+=i.price; if(cat==='desejado') totals.des+=i.price; if(i.status==='bought') { bVal+=i.price; cBou++; } else { pVal+=i.price; } cTot++; }); }); }));
     const totalCost = totals.ess+totals.com+totals.des;
-    
-    const fPct = totalCost>0 ? (bVal/totalCost)*100 : 0;
-    document.getElementById('bar-finance').style.width=`${fPct}%`; document.getElementById('prog-text-finance').innerText=`${fPct.toFixed(1)}%`;
-    document.getElementById('val-paid').innerText=`Pago: ${formatCurrency(bVal)}`; document.getElementById('val-pending').innerText=`Falta: ${formatCurrency(pVal)}`;
-    
-    const qPct = cTot>0 ? (cBou/cTot)*100 : 0;
-    document.getElementById('bar-qty').style.width=`${qPct}%`; document.getElementById('prog-text-qty').innerText=`${qPct.toFixed(1)}%`;
-    document.getElementById('qty-paid').innerText=`${cBou} itens`; document.getElementById('qty-pending').innerText=`${cTot-cBou} itens`;
-
-    const totalMoney = wallet.balance + currentCryptoTotal;
-    const cPct = totalCost>0 ? (totalMoney/totalCost)*100 : 0;
-    const visCPct = cPct>100?100:cPct;
-    document.getElementById('bar-cover').style.width=`${visCPct}%`; document.getElementById('prog-text-cover').innerText=`${cPct.toFixed(1)}%`;
-
-    document.getElementById('gl-ess').innerText=formatCurrency(totals.ess); document.getElementById('gl-com').innerText=formatCurrency(totals.com);
-    document.getElementById('gl-des').innerText=formatCurrency(totals.des); document.getElementById('gl-total').innerText=formatCurrency(totalCost);
-
-    if(currentSectionId) {
-        const sec=sections.find(s=>s.id===currentSectionId); let sT=0, sB=0;
-        if(sec) sec.rooms.forEach(r => ['essencial','comum','desejado'].forEach(c => houseData[r.id][c].forEach(i=>{sT+=i.price; if(i.status==='bought')sB+=i.price;})));
-        document.getElementById('sec-combined-total').innerText=formatCurrency(sT); document.getElementById('sec-combined-bought').innerText=`Pago: ${formatCurrency(sB)}`; document.getElementById('sec-combined-pending').innerText=`Falta: ${formatCurrency(sT-sB)}`;
-    }
+    const fPct = totalCost>0 ? (bVal/totalCost)*100 : 0; document.getElementById('bar-finance').style.width=`${fPct}%`; document.getElementById('prog-text-finance').innerText=`${fPct.toFixed(1)}%`; document.getElementById('val-paid').innerText=`Pago: ${formatCurrency(bVal)}`; document.getElementById('val-pending').innerText=`Falta: ${formatCurrency(pVal)}`;
+    const qPct = cTot>0 ? (cBou/cTot)*100 : 0; document.getElementById('bar-qty').style.width=`${qPct}%`; document.getElementById('prog-text-qty').innerText=`${qPct.toFixed(1)}%`; document.getElementById('qty-paid').innerText=`${cBou} itens`; document.getElementById('qty-pending').innerText=`${cTot-cBou} itens`;
+    const totalMoney = wallet.balance + currentCryptoTotal; const cPct = totalCost>0 ? (totalMoney/totalCost)*100 : 0; const visCPct = cPct>100?100:cPct; document.getElementById('bar-cover').style.width=`${visCPct}%`; document.getElementById('prog-text-cover').innerText=`${cPct.toFixed(1)}%`;
+    document.getElementById('gl-ess').innerText=formatCurrency(totals.ess); document.getElementById('gl-com').innerText=formatCurrency(totals.com); document.getElementById('gl-des').innerText=formatCurrency(totals.des); document.getElementById('gl-total').innerText=formatCurrency(totalCost);
+    if(currentSectionId) { const sec=sections.find(s=>s.id===currentSectionId); let sT=0, sB=0; if(sec) sec.rooms.forEach(r => ['essencial','comum','desejado'].forEach(c => houseData[r.id][c].forEach(i=>{sT+=i.price; if(i.status==='bought')sB+=i.price;}))); document.getElementById('sec-combined-total').innerText=formatCurrency(sT); document.getElementById('sec-combined-bought').innerText=`Pago: ${formatCurrency(sB)}`; document.getElementById('sec-combined-pending').innerText=`Falta: ${formatCurrency(sT-sB)}`; }
 }
 function formatCurrency(val) { return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
