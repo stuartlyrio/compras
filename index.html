@@ -87,7 +87,6 @@
                 <div class="progress-track"><div class="progress-fill fill-finance" id="bar-finance" style="width: 0%"></div></div>
                 <div class="prog-details"><span class="c-green" id="val-paid">Pago: R$ 0</span><span class="c-red" id="val-pending">Falta: R$ 0</span></div>
             </div>
-            
             <div class="progress-group">
                 <div class="prog-label"><span>Poder Total (Caixa + Invest)</span><span id="prog-text-cover">0%</span></div>
                 <div class="progress-track"><div class="progress-fill fill-cover" id="bar-cover" style="width: 0%"></div></div>
@@ -133,37 +132,41 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics.js";
     import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
     import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     // -----------------------------------------------------------
-    // COLE SUA API KEY AQUI NOVAMENTE
+    // SUA CONFIGURAÇÃO EXATA DO FIREBASE
     // -----------------------------------------------------------
     const firebaseConfig = {
-        apiKey: "SUA_API_KEY",
-        authDomain: "gerenciador-casa-nova-995be.firebaseapp.com",
-        projectId: "gerenciador-casa-nova-995be",
-        storageBucket: "gerenciador-casa-nova-995be.firebasestorage.app",
-        messagingSenderId: "445897682000",
-        appId: "1:445897682000:web:6b715606cd666653c3b555",
-        measurementId: "G-23EQ6DCPEJ"
+      apiKey: "AIzaSyD4cf7vaS03FfF-Yq8qFAeXh7xFqHjTZvY",
+      authDomain: "gerenciador-casa-nova-995be.firebaseapp.com",
+      projectId: "gerenciador-casa-nova-995be",
+      storageBucket: "gerenciador-casa-nova-995be.firebasestorage.app",
+      messagingSenderId: "445897682000",
+      appId: "1:445897682000:web:6b715606cd666653c3b555",
+      measurementId: "G-23EQ6DCPEJ"
     };
 
+    // Inicializando Firebase
     const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
     const auth = getAuth(app);
     const db = getFirestore(app);
     const provider = new GoogleAuthProvider();
 
+    // Exportando para o script.js
     window.db = db; window.auth = auth; window.doc = doc; window.getDoc = getDoc; window.setDoc = setDoc; window.currentUser = null;
 
-    // UI LOGIN
+    // LÓGICA UI LOGIN
     const btnLogin = document.getElementById('btn-login-google');
     const overlay = document.getElementById('auth-overlay');
     const appContent = document.getElementById('app-content');
     const userNameSpan = document.getElementById('user-name');
     const userInfoDiv = document.getElementById('user-info');
     
-    // LOGIN LÓGICA (Simplificada para caber)
+    // Toggle Login/Cadastro
     const emailInput = document.getElementById('auth-email');
     const passInput = document.getElementById('auth-pass');
     let isLoginMode = true;
@@ -185,13 +188,14 @@
     btnLogin.addEventListener('click', () => signInWithPopup(auth, provider).catch(e => alert(e.message)));
     window.logout = () => signOut(auth).then(() => location.reload());
 
+    // Monitora Login
     onAuthStateChanged(auth, async (user) => {
         if (user) {
             window.currentUser = user;
             overlay.style.display = 'none';
             appContent.style.display = 'block';
             userInfoDiv.style.display = 'flex';
-            userNameSpan.innerText = user.displayName ? user.displayName.split(' ')[0] : "Usuário";
+            userNameSpan.innerText = user.displayName ? user.displayName.split(' ')[0] : (user.email ? user.email.split('@')[0] : "Usuário");
             if(window.loadUserData) await window.loadUserData(user.uid);
         }
     });
