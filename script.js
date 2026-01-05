@@ -13,7 +13,12 @@ let checklistData = {};
 let wallet = { balance: 0, history: [] };
 let investments = [];
 let currentSectionId = null;
+let currentRoomId = null; // Guardamos o comodo atual globalmente
 let currentCryptoPrices = {};
+
+// Variáveis para Clonar (Ctrl+C / Ctrl+V)
+let appClipboard = null; // Guarda o item copiado
+let hoveredItemData = null; // Guarda qual item o mouse está em cima
 
 // --- INICIALIZAÇÃO ---
 window.loadUserData = async (uid) => {
@@ -37,6 +42,7 @@ window.loadUserData = async (uid) => {
         updateWalletUI();
         refreshCryptoPrices();
         renderCryptoList();
+        setupKeyboardShortcuts(); // Inicia monitoramento de teclas
     } catch (e) { console.error("Erro load:", e); }
 };
 
@@ -154,26 +160,50 @@ window.deleteCurrentSection = () => {
     updateAllTotals(); saveData();
 };
 
-// --- CÔMODOS ---
+// --- CÔMODOS E NAVEGAÇÃO ---
 function renderRoomsNav() {
     const nav = document.getElementById('room-nav'); nav.innerHTML = '';
     const sec = sections.find(s=>s.id===currentSectionId); if(!sec) return;
+    
     sec.rooms.forEach(room => {
-        const btn = document.createElement('button'); btn.className='room-btn'; btn.innerText=room.name;
-        btn.onclick=()=>switchRoom(room.id); btn.dataset.target=room.id; nav.appendChild(btn);
+        const btn = document.createElement('button'); 
+        btn.className = 'room-btn'; 
+        btn.innerText = room.name;
+        
+        // Clique normal
+        btn.onclick = () => switchRoom(room.id); 
+        btn.dataset.target = room.id;
+
+        // --- ATUALIZAÇÃO 1: DROP ZONE NOS BOTÕES DE NAVEGAÇÃO ---
+        // Permite soltar um item em cima do botão para mudar de sala
+        btn.ondragover = (e) => {
+            e.preventDefault();
+            btn.classList.add('drag-over-tab');
+        };
+        btn.ondragleave = (e) => {
+            btn.classList.remove('drag-over-tab');
+        };
+        btn.ondrop = (e) => dropOnRoom(e, room.id);
+
+        nav.appendChild(btn);
     });
 }
+
 window.addNewRoom = () => {
     if(!currentSectionId) return; const name = document.getElementById('new-room-name').value.trim(); if(!name) return;
     const id = name.toLowerCase().replace(/[^a-z0-9]/g,'')+'-'+Date.now();
     sections.find(s=>s.id===currentSectionId).rooms.push({id, name});
     initializeRoomData({id, name}); document.getElementById('new-room-name').value=''; renderRoomsNav(); switchRoom(id); updateAllTotals(); saveData();
 };
+
 window.switchRoom = (roomId) => {
+    currentRoomId = roomId; // Atualiza a variável global
     document.querySelectorAll('.room-btn').forEach(b=>b.classList.remove('active'));
     const btn = document.querySelector(`button[data-target="${roomId}"]`); if(btn) btn.classList.add('active');
+    
     const container = document.getElementById('main-container');
     const roomName = btn ? btn.innerText : 'Cômodo';
+    
     container.innerHTML = `
         <div class="room-section active" id="section-${roomId}">
             <div class="room-header"><h2>${roomName}</h2><div class="room-stats"><span id="room-stat-${roomId}"></span></div></div>
@@ -188,7 +218,9 @@ window.switchRoom = (roomId) => {
     updateRoomTotals(roomId);
 };
 
-// --- MODIFICADO: RENDERIZAÇÃO DE COLUNA PARA DRAG AND DROP ---
+// --- DRAG AND DROP AVANÇADO ---
+
+// Renderiza a estrutura da coluna (com os eventos de Drop)
 function renderColumnHTML(r, c, t) {
     return `<div class="column">
         <h3>${t}</h3>
@@ -209,7 +241,7 @@ function renderColumnHTML(r, c, t) {
     </div>`;
 }
 
-// --- MODIFICADO: RENDERIZAÇÃO DE LISTA PARA CLIQUE E ARRASTE ---
+// Renderiza os itens (com suporte a Drag e Hover para Ctrl+C)
 function renderLists(r, c) {
     const ul = document.getElementById(`list-${r}-${c}`); 
     ul.innerHTML='';
@@ -224,8 +256,13 @@ function renderLists(r, c) {
         li.setAttribute('draggable', 'true');
         li.ondragstart = (e) => dragStart(e, r, c, i.id);
         
-        // Edit Setup
+        // Edit Setup (Clique)
         li.onclick = () => openEditModal(r, c, i.id);
+
+        // --- ATUALIZAÇÃO 2: TRACKING PARA CTRL+C ---
+        // Monitora se o mouse está em cima para saber qual item copiar
+        li.onmouseenter = () => { hoveredItemData = { r, c, item: i }; };
+        li.onmouseleave = () => { hoveredItemData = null; };
 
         li.innerHTML=`
         <img src="${i.img}" class="item-img">
@@ -244,12 +281,13 @@ function renderLists(r, c) {
     });
 }
 
-// --- NOVO: LÓGICA DE DRAG AND DROP ---
+// Lógica de Inicio de Arraste
 window.dragStart = (e, r, c, id) => {
     e.target.classList.add('dragging');
     e.dataTransfer.setData("text/plain", JSON.stringify({ r, c, id }));
 };
 
+// Permitir Drop visualmente
 window.allowDrop = (e) => {
     e.preventDefault();
     const list = e.target.closest('ul');
@@ -261,6 +299,7 @@ window.leaveDrop = (e) => {
     if(list) list.classList.remove('drag-over');
 };
 
+// Drop dentro da MESMA tela (entre colunas)
 window.dropItem = (e, targetR, targetC) => {
     e.preventDefault();
     const list = e.target.closest('ul');
@@ -270,7 +309,7 @@ window.dropItem = (e, targetR, targetC) => {
         const data = JSON.parse(e.dataTransfer.getData("text/plain"));
         const { r: originR, c: originC, id: itemId } = data;
 
-        if (originR === targetR && originC === targetC) return; // Mesmo lugar
+        if (originR === targetR && originC === targetC) return; 
 
         const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId);
         if (itemIndex === -1) return;
@@ -286,7 +325,89 @@ window.dropItem = (e, targetR, targetC) => {
     } catch (err) { console.error("Drop error:", err); }
 };
 
-// --- NOVO: LÓGICA DO MODAL DE EDIÇÃO ---
+// --- ATUALIZAÇÃO 3: DROP EM OUTRO CÔMODO (NO BOTÃO DA ABA) ---
+window.dropOnRoom = (e, targetRoomId) => {
+    e.preventDefault();
+    // Remove o efeito visual do botão
+    const btn = document.querySelector(`button[data-target="${targetRoomId}"]`);
+    if(btn) btn.classList.remove('drag-over-tab');
+
+    try {
+        const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+        const { r: originR, c: originC, id: itemId } = data;
+
+        if (originR === targetRoomId) return; // Se for o mesmo cômodo, ignora
+
+        // Encontra e remove do original
+        const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId);
+        if (itemIndex === -1) return;
+        
+        const item = houseData[originR][originC][itemIndex];
+        houseData[originR][originC].splice(itemIndex, 1);
+
+        // Adiciona no cômodo alvo (Mantém a mesma categoria: essencial/comum/desejado)
+        // Se a categoria não existir (erro de dados), joga em essencial
+        const targetCat = houseData[targetRoomId][originC] ? originC : 'essencial';
+        houseData[targetRoomId][targetCat].push(item);
+
+        // Atualiza a tela atual (remove o item que saiu)
+        renderLists(originR, originC);
+        
+        // Salva e notifica
+        showToast(`Item movido para ${sections.find(s=>s.id===currentSectionId).rooms.find(rm=>rm.id===targetRoomId).name}`);
+        updateAllTotals();
+        saveData();
+
+    } catch (err) { console.error("Room Drop error:", err); }
+};
+
+
+// --- ATUALIZAÇÃO 4: CTRL+C e CTRL+V ---
+function setupKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // Copiar (Ctrl + C)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+            if (hoveredItemData) {
+                // Clona o objeto (para não manter referência)
+                appClipboard = JSON.parse(JSON.stringify(hoveredItemData));
+                showToast(`Copiado: ${appClipboard.item.name}`);
+            }
+        }
+
+        // Colar (Ctrl + V)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+            if (appClipboard && currentRoomId) {
+                // Verifica se tem dados na área de transferência
+                // Cria um novo ID e reseta status
+                const newItem = { ...appClipboard.item, id: Date.now(), status: 'pending', name: appClipboard.item.name + ' (Cópia)' };
+                
+                // Tenta colar na mesma categoria de origem (Ex: Essencial), senão vai pro padrão
+                const targetCat = appClipboard.c;
+                
+                if (houseData[currentRoomId] && houseData[currentRoomId][targetCat]) {
+                    houseData[currentRoomId][targetCat].push(newItem);
+                    renderLists(currentRoomId, targetCat);
+                    updateAllTotals();
+                    saveData();
+                    showToast(`Colado em ${targetCat}`);
+                }
+            }
+        }
+    });
+}
+
+// Helper para notificação visual
+function showToast(msg) {
+    const div = document.createElement('div');
+    div.className = 'toast-notification';
+    div.innerHTML = `<i class="fas fa-check-circle" style="color:#4CAF50;"></i> ${msg}`;
+    document.body.appendChild(div);
+    // Remove do DOM após a animação (3s)
+    setTimeout(() => { div.remove(); }, 3000);
+}
+
+
+// --- LÓGICA DO MODAL DE EDIÇÃO ---
 window.openEditModal = (r, c, id) => {
     const item = houseData[r][c].find(i => i.id === id);
     if (!item) return;
@@ -299,7 +420,6 @@ window.openEditModal = (r, c, id) => {
     document.getElementById('edit-link').value = item.link || '';
     document.getElementById('edit-desc').value = item.desc || '';
 
-    // Popula seleção de cômodos
     const roomSelect = document.getElementById('edit-move-room');
     roomSelect.innerHTML = '';
     const currentSection = sections.find(s => s.id === currentSectionId);
@@ -341,17 +461,17 @@ window.saveEditItem = () => {
     item.link = newLink;
     item.desc = newDesc;
 
-    if (!houseData[rNew]) initializeRoomData({id: rNew}); // Segurança
-    houseData[rNew][cNew].push(item); // Adiciona no novo
+    if (!houseData[rNew]) initializeRoomData({id: rNew});
+    houseData[rNew][cNew].push(item);
 
     closeEditModal();
-    if (rOld !== rNew) switchRoom(rNew); // Se mudou de sala, vai pra lá
+    if (rOld !== rNew) switchRoom(rNew); 
     else { renderLists(rOld, cOld); if(cOld !== cNew) renderLists(rOld, cNew); }
     updateAllTotals(); saveData();
 };
 
 
-// --- IA & ITENS (Antigo mantido) ---
+// --- IA & ITENS ---
 window.autoFillFromLink = async (r, c) => {
     const link = document.getElementById(`in-${r}-${c}-link`).value; const icon = document.getElementById(`icon-${r}-${c}`);
     if(!link) return; icon.className="fas fa-spinner fa-spin";
