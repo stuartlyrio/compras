@@ -1,11 +1,5 @@
 // --- DADOS E CONFIGURAÇÕES ---
-const defaultChecklists = {
-    quarto: { essencial: ['Cama/Colchão', 'Travesseiros', 'Jogo de Cama', 'Guarda-roupa'], comum: ['Mesa cabeceira', 'Cortina', 'Espelho', 'Abajur', 'Tapete', 'Ventilador'] },
-    sala: { essencial: ['Sofá', 'Rack', 'Iluminação'], comum: ['TV', 'Mesa centro', 'Tapete', 'Cortinas', 'Almofadas', 'Quadros'] },
-    banheiro: { essencial: ['Toalhas', 'Espelho', 'Lixeira', 'Porta-papel', 'Escova sanitária'], comum: ['Gabinete', 'Porta-escova', 'Cesto roupa', 'Tapete'] },
-    cozinha: { essencial: ['Geladeira', 'Fogão', 'Panelas', 'Pratos/Talheres', 'Lixeira'], comum: ['Micro-ondas', 'Liquidificador', 'Potes', 'Cafeteira', 'Sanduicheira'] },
-    area: { essencial: ['Máquina lavar', 'Varal', 'Balde', 'Vassoura/Rodo'], comum: ['Tábua passar', 'Ferro', 'Cesto', 'Armário'] }
-};
+const defaultCategories = ['essencial', 'comum', 'desejado'];
 
 let sections = [];
 let houseData = {}; 
@@ -45,6 +39,7 @@ window.loadUserData = async (uid) => {
         renderCryptoList();
         setupKeyboardShortcuts();
         setupEditModalImageInput();
+        setupListTargetLogic();
     } catch (e) { console.error("Erro load:", e); }
 };
 
@@ -57,10 +52,9 @@ const saveData = async () => {
 
 function initializeRoomData(room) {
     if (!houseData[room.id]) {
-        houseData[room.id] = { essencial: [], comum: [], desejado: [] };
-        let type = '';
-        if (room.id.includes('quarto')) type = 'quarto'; else if (room.id.includes('sala')) type = 'sala'; else if (room.id.includes('banheiro')) type = 'banheiro'; else if (room.id.includes('cozinha')) type = 'cozinha'; else if (room.id.includes('area')) type = 'area';
-        checklistData[room.id] = { essencial: type ? [...(defaultChecklists[type]?.essencial || [])] : [], comum: type ? [...(defaultChecklists[type]?.comum || [])] : [], desejado: [] };
+        houseData[room.id] = {};
+        defaultCategories.forEach(cat => houseData[room.id][cat] = []);
+        checklistData[room.id] = {};
     }
 }
 
@@ -131,7 +125,7 @@ function updateCryptoTotal() {
 }
 function renderCryptoList() { updateCryptoTotal(); }
 
-// --- NAV DE SEÇÕES (COM BOTÃO + AO LADO) ---
+// --- NAV DE SEÇÕES ---
 function renderSectionNav() {
     const nav = document.getElementById('section-nav'); nav.innerHTML = '';
     sections.forEach(sec => {
@@ -139,7 +133,6 @@ function renderSectionNav() {
         if(sec.id === currentSectionId) btn.classList.add('active');
         btn.innerText = sec.name; btn.onclick = () => switchSection(sec.id); nav.appendChild(btn);
     });
-    // Botão Adicionar Seção (ao lado)
     const addBtn = document.createElement('button');
     addBtn.className = 'add-tab-btn';
     addBtn.innerHTML = '<i class="fas fa-plus"></i>';
@@ -158,7 +151,6 @@ window.switchSection = (id) => {
     else document.getElementById('main-container').innerHTML = '<div style="text-align:center; padding:30px; color:#666">Vazio. Clique no + para criar um cômodo.</div>';
 };
 
-// Salvar Nova Seção (Modal)
 window.saveNewSection = () => {
     const name = document.getElementById('modal-section-name').value.trim();
     if(!name) return;
@@ -176,7 +168,7 @@ window.deleteCurrentSection = () => {
     updateAllTotals(); saveData();
 };
 
-// --- NAV DE CÔMODOS (COM BOTÃO + E CORES) ---
+// --- NAV DE CÔMODOS ---
 function renderRoomsNav() {
     const nav = document.getElementById('room-nav'); nav.innerHTML = '';
     const sec = sections.find(s=>s.id===currentSectionId); if(!sec) return;
@@ -185,12 +177,8 @@ function renderRoomsNav() {
         const btn = document.createElement('button'); 
         btn.className = 'room-btn'; 
         btn.innerText = room.name;
-        
-        // Aplica cores personalizadas se existirem
         if (room.bgColor) btn.style.backgroundColor = room.bgColor;
         if (room.textColor) btn.style.color = room.textColor;
-        // Se a cor for clara/escura, a borda pode precisar de ajuste, mas vamos manter simples
-
         btn.onclick = () => switchRoom(room.id); 
         btn.dataset.target = room.id;
         btn.ondragover = (e) => { e.preventDefault(); btn.classList.add('drag-over-tab'); };
@@ -199,12 +187,10 @@ function renderRoomsNav() {
         nav.appendChild(btn);
     });
 
-    // Botão Adicionar Cômodo (ao lado)
     const addBtn = document.createElement('button');
     addBtn.className = 'add-tab-btn';
     addBtn.innerHTML = '<i class="fas fa-plus"></i>';
     addBtn.onclick = () => { 
-        // Reset modal values
         document.getElementById('modal-room-name').value = '';
         document.getElementById('modal-room-bg').value = '#19191a';
         document.getElementById('modal-room-text').value = '#888888';
@@ -214,37 +200,41 @@ function renderRoomsNav() {
     nav.appendChild(addBtn);
 }
 
-// Preview em tempo real no Modal
 window.updateRoomPreview = () => {
     const name = document.getElementById('modal-room-name').value || 'Nome do Cômodo';
     const bg = document.getElementById('modal-room-bg').value;
     const txt = document.getElementById('modal-room-text').value;
     const preview = document.getElementById('room-preview-box');
-    
     preview.innerText = name;
     preview.style.backgroundColor = bg;
     preview.style.color = txt;
 };
 
-// Salvar Novo Cômodo com Cores
 window.saveNewRoom = () => {
     if(!currentSectionId) return; 
     const name = document.getElementById('modal-room-name').value.trim(); 
     const bgColor = document.getElementById('modal-room-bg').value;
     const textColor = document.getElementById('modal-room-text').value;
-    
     if(!name) return;
-    
     const id = name.toLowerCase().replace(/[^a-z0-9]/g,'')+'-'+Date.now();
-    
-    // Salva com as cores
     sections.find(s=>s.id===currentSectionId).rooms.push({id, name, bgColor, textColor});
-    
     initializeRoomData({id, name}); 
     document.getElementById('new-room-modal').style.display='none';
     renderRoomsNav(); switchRoom(id); updateAllTotals(); saveData();
 };
 
+window.deleteCurrentRoom = () => {
+    if(!currentRoomId || !confirm("Tem certeza que deseja excluir este cômodo e todos os itens dele?")) return;
+    const sec = sections.find(s => s.id === currentSectionId);
+    sec.rooms = sec.rooms.filter(r => r.id !== currentRoomId);
+    delete houseData[currentRoomId];
+    saveData();
+    if(sec.rooms.length > 0) { switchRoom(sec.rooms[0].id); renderRoomsNav(); } 
+    else { renderRoomsNav(); document.getElementById('main-container').innerHTML = '<div style="text-align:center; padding:30px; color:#666">Nenhum cômodo. Adicione um.</div>'; }
+    updateAllTotals();
+};
+
+// --- RENDERIZAÇÃO DE SALA ---
 window.switchRoom = (roomId) => {
     currentRoomId = roomId;
     document.querySelectorAll('.room-btn').forEach(b=>b.classList.remove('active'));
@@ -253,37 +243,48 @@ window.switchRoom = (roomId) => {
     const container = document.getElementById('main-container');
     const roomName = btn ? btn.innerText : 'Cômodo';
     
+    const categories = Object.keys(houseData[roomId]).filter(k => Array.isArray(houseData[roomId][k]));
+    
+    let columnsHTML = '';
+    categories.forEach(cat => {
+        columnsHTML += renderColumnHTML(roomId, cat, capitalize(cat));
+    });
+
     container.innerHTML = `
         <div class="room-section active" id="section-${roomId}">
             <div class="room-header">
-                <h2>${roomName}</h2>
+                <div style="display:flex; align-items:center;">
+                    <h2>${roomName}</h2>
+                    <button class="btn-add-list" onclick="openNewListModal()"><i class="fas fa-plus"></i> Nova Lista</button>
+                    <button class="btn-delete-room" onclick="deleteCurrentRoom()"><i class="fas fa-trash"></i> Excluir Cômodo</button>
+                </div>
                 <div class="room-stats" id="room-stat-${roomId}">Total: R$ 0,00</div>
             </div>
             <div class="columns-wrapper">
-                ${renderColumnHTML(roomId, 'essencial', 'Essenciais')}
-                ${renderColumnHTML(roomId, 'comum', 'Comuns')}
-                ${renderColumnHTML(roomId, 'desejado', 'Desejados')}
+                ${columnsHTML}
             </div>
         </div>`;
-    renderChecklist(roomId, 'essencial'); renderChecklist(roomId, 'comum'); renderChecklist(roomId, 'desejado');
-    renderLists(roomId, 'essencial'); renderLists(roomId, 'comum'); renderLists(roomId, 'desejado');
+    
+    categories.forEach(cat => {
+        renderLists(roomId, cat);
+    });
     updateRoomTotals(roomId);
 };
 
-// --- RENDERIZAÇÃO E ADD ITEM ---
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
 function renderColumnHTML(r, c, t) {
     return `<div class="column">
-        <h3>${t}</h3>
-        <div class="checklist-area"><div class="checklist-title">Sugestões:</div><div class="checklist-items" id="check-${r}-${c}"></div>
-        <div class="add-checklist-wrapper"><input type="text" id="new-check-${r}-${c}" placeholder="+ Item"><button class="btn-check-add" onclick="addToChecklist('${r}','${c}')"><i class="fas fa-plus"></i></button></div></div>
+        <h3>
+            <span>${t} <button class="btn-edit-list-name" onclick="editListName('${r}', '${c}')"><i class="fas fa-pen"></i></button></span>
+            <span class="col-total" id="total-${r}-${c}">R$ 0</span>
+        </h3>
         <div class="add-form">
             <div class="input-group-row"><input type="text" id="in-${r}-${c}-link" placeholder="Link"><button class="ai-action-btn" onclick="autoFillFromLink('${r}','${c}')" title="IA"><i class="fas fa-magic" id="icon-${r}-${c}"></i></button></div>
             <input type="text" id="in-${r}-${c}-name" placeholder="Nome"><input type="number" id="in-${r}-${c}-price" placeholder="R$" step="0.01">
             <textarea id="in-${r}-${c}-desc" placeholder="Detalhes"></textarea>
-            
             <input type="file" id="in-${r}-${c}-img" accept="image/*" multiple class="hidden-file-input">
             <label for="in-${r}-${c}-img" class="file-upload-btn"><i class="fas fa-images"></i> Fotos (Várias)</label>
-
             <button class="add-btn" onclick="addItem('${r}','${c}')">Adicionar</button>
         </div>
         <ul class="item-list" id="list-${r}-${c}" 
@@ -294,31 +295,132 @@ function renderColumnHTML(r, c, t) {
     </div>`;
 }
 
-// LÓGICA DO CARROSSEL DE IMAGENS
-window.changeImage = (e, direction, r, c, itemId) => {
-    e.stopPropagation(); // Não abrir modal
-    const item = houseData[r][c].find(i => i.id === itemId);
-    if (!item) return;
+// --- LOGICA DE NOVA LISTA E EDIÇÃO DE LISTA ---
+window.openNewListModal = () => {
+    document.getElementById('modal-list-name').value = '';
+    document.getElementById('target-current').checked = true;
+    document.getElementById('manual-selection-wrapper').style.display = 'none';
+    document.getElementById('room-selection-container').style.display = 'none';
+    document.getElementById('selector-arrow').style.transform = 'rotate(0deg)';
+    setupRoomCheckboxes();
+    document.getElementById('new-list-modal').style.display = 'flex';
+};
 
-    // Normaliza para array (caso antigo)
-    const imgs = Array.isArray(item.imgs) ? item.imgs : (item.img ? [item.img] : ['https://via.placeholder.com/150/000/fff?text=Sem+Foto']);
+window.editListName = (r, oldName) => {
+    const newName = prompt("Novo nome para a lista:", oldName);
+    if(newName && newName !== oldName) {
+        const newKey = newName.toLowerCase().trim().replace(/\s+/g, '-');
+        if(houseData[r][newKey]) {
+            alert("Já existe uma lista com esse nome (ou id)!");
+            return;
+        }
+        houseData[r][newKey] = houseData[r][oldName];
+        delete houseData[r][oldName];
+        saveData();
+        switchRoom(r);
+    }
+};
+
+function setupRoomCheckboxes() {
+    const container = document.getElementById('room-selection-container');
+    container.innerHTML = '';
     
-    // Pega o elemento da imagem no DOM
+    sections.forEach(sec => {
+        const title = document.createElement('div');
+        title.className = 'section-group-title';
+        title.innerText = sec.name;
+        container.appendChild(title);
+
+        if(sec.rooms && sec.rooms.length > 0) {
+            sec.rooms.forEach(room => {
+                const div = document.createElement('div');
+                div.className = 'room-checkbox-row';
+                const isCurrent = (room.id === currentRoomId);
+                div.innerHTML = `<input type="checkbox" id="chk-${room.id}" value="${room.id}" ${isCurrent ? 'checked' : ''}> <label for="chk-${room.id}">${room.name}</label>`;
+                container.appendChild(div);
+            });
+        } else {
+            const div = document.createElement('div');
+            div.style.color = '#555'; div.style.fontSize='0.8rem'; div.style.marginLeft='10px';
+            div.innerText = "(Sem cômodos)";
+            container.appendChild(div);
+        }
+    });
+}
+
+window.toggleRoomDropdown = () => {
+    const container = document.getElementById('room-selection-container');
+    const arrow = document.getElementById('selector-arrow');
+    
+    if (container.style.display === 'none') {
+        container.style.display = 'block';
+        arrow.style.transform = 'rotate(180deg)';
+    } else {
+        container.style.display = 'none';
+        arrow.style.transform = 'rotate(0deg)';
+    }
+};
+
+function setupListTargetLogic() {
+    const radios = document.getElementsByName('add-list-target');
+    radios.forEach(radio => {
+        radio.addEventListener('change', (e) => {
+            if(e.target.value === 'select') {
+                document.getElementById('manual-selection-wrapper').style.display = 'block';
+            } else {
+                document.getElementById('manual-selection-wrapper').style.display = 'none';
+            }
+        });
+    });
+}
+
+window.saveNewList = () => {
+    const rawName = document.getElementById('modal-list-name').value.trim();
+    if (!rawName) return;
+    
+    const listId = rawName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+    const target = document.querySelector('input[name="add-list-target"]:checked').value;
+    const sec = sections.find(s=>s.id===currentSectionId);
+
+    let roomsToUpdate = [];
+
+    if (target === 'current') {
+        roomsToUpdate.push(currentRoomId);
+    } else if (target === 'section') {
+        roomsToUpdate = sec.rooms.map(r => r.id);
+    } else if (target === 'global') {
+        sections.forEach(s => {
+            s.rooms.forEach(r => roomsToUpdate.push(r.id));
+        });
+    } else if (target === 'select') {
+        const checkboxes = document.querySelectorAll('#room-selection-container input:checked');
+        checkboxes.forEach(chk => roomsToUpdate.push(chk.value));
+    }
+
+    roomsToUpdate.forEach(rid => {
+        if (!houseData[rid]) houseData[rid] = {}; 
+        if (!houseData[rid][listId]) houseData[rid][listId] = [];
+    });
+
+    document.getElementById('new-list-modal').style.display = 'none';
+    if (roomsToUpdate.includes(currentRoomId)) {
+        switchRoom(currentRoomId);
+    }
+    updateAllTotals();
+    saveData();
+};
+
+// ... [Outras funções auxiliares mantidas iguais] ...
+window.changeImage = (e, direction, r, c, itemId) => {
+    e.stopPropagation(); 
+    const item = houseData[r][c].find(i => i.id === itemId); if (!item) return;
+    const imgs = Array.isArray(item.imgs) ? item.imgs : (item.img ? [item.img] : ['https://via.placeholder.com/150/000/fff?text=Sem+Foto']);
     const imgEl = document.getElementById(`img-el-${itemId}`);
     let currentIndex = parseInt(imgEl.dataset.index) || 0;
-    
-    // Calcula novo index
     let newIndex = currentIndex + direction;
-    if (newIndex >= imgs.length) newIndex = 0;
-    if (newIndex < 0) newIndex = imgs.length - 1;
-
-    // Atualiza DOM
-    imgEl.src = imgs[newIndex];
-    imgEl.dataset.index = newIndex;
-    
-    // Atualiza contador
-    const countEl = document.getElementById(`img-count-${itemId}`);
-    if(countEl) countEl.innerText = `${newIndex + 1}/${imgs.length}`;
+    if (newIndex >= imgs.length) newIndex = 0; if (newIndex < 0) newIndex = imgs.length - 1;
+    imgEl.src = imgs[newIndex]; imgEl.dataset.index = newIndex;
+    const countEl = document.getElementById(`img-count-${itemId}`); if(countEl) countEl.innerText = `${newIndex + 1}/${imgs.length}`;
 };
 
 function renderLists(r, c) {
@@ -336,11 +438,7 @@ function renderLists(r, c) {
         li.onmouseenter = () => { hoveredItemData = { r, c, item: i }; };
         li.onmouseleave = () => { hoveredItemData = null; };
 
-        // PREPARAÇÃO DAS IMAGENS
-        const images = Array.isArray(i.imgs) && i.imgs.length > 0 
-            ? i.imgs 
-            : (i.img ? [i.img] : ['https://via.placeholder.com/150/000/fff?text=Sem+Foto']);
-        
+        const images = Array.isArray(i.imgs) && i.imgs.length > 0 ? i.imgs : (i.img ? [i.img] : ['https://via.placeholder.com/150/000/fff?text=Sem+Foto']);
         const showArrows = images.length > 1;
 
         li.innerHTML=`
@@ -350,7 +448,6 @@ function renderLists(r, c) {
             ${showArrows ? `<button class="carousel-btn next-btn" onclick="changeImage(event, 1, '${r}', '${c}', ${i.id})">❯</button>` : ''}
             ${showArrows ? `<span class="img-counter" id="img-count-${i.id}">1/${images.length}</span>` : ''}
         </div>
-
         <div class="item-info">
             <span class="item-name">${i.name}</span>
             <span class="item-price">${formatCurrency(i.price)}</span>
@@ -366,55 +463,24 @@ function renderLists(r, c) {
     });
 }
 
-// --- ADD ITEM COM MÚLTIPLOS ARQUIVOS ---
 window.addItem = async (r, c) => {
     const name = document.getElementById(`in-${r}-${c}-name`).value.trim();
     const price = parseFloat(document.getElementById(`in-${r}-${c}-price`).value);
     const desc = document.getElementById(`in-${r}-${c}-desc`).value;
     const link = document.getElementById(`in-${r}-${c}-link`).value;
     const fileIn = document.getElementById(`in-${r}-${c}-img`);
-    const files = fileIn.files; // Lista de arquivos
-    const remote = fileIn.getAttribute('data-remote');
+    const files = fileIn.files; const remote = fileIn.getAttribute('data-remote');
 
     if(!name || isNaN(price)) { alert("Nome e Preço são obrigatórios!"); return; }
-
     const processFiles = async () => {
         if (files.length > 0) {
-            const promises = Array.from(files).map(file => {
-                return new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => resolve(e.target.result);
-                    reader.readAsDataURL(file);
-                });
-            });
+            const promises = Array.from(files).map(file => { return new Promise((resolve) => { const reader = new FileReader(); reader.onload = (e) => resolve(e.target.result); reader.readAsDataURL(file); }); });
             return Promise.all(promises);
-        } else if (remote) {
-            return [remote];
-        } else {
-            return ['https://via.placeholder.com/150/000/fff?text=Sem+Foto'];
-        }
+        } else if (remote) { return [remote]; } else { return ['https://via.placeholder.com/150/000/fff?text=Sem+Foto']; }
     };
-
     const finalImages = await processFiles();
-
-    houseData[r][c].push({ 
-        id: Date.now(), 
-        name, 
-        price, 
-        desc, 
-        link, 
-        imgs: finalImages, // Salva array agora
-        status: 'pending' 
-    });
-
-    document.getElementById(`in-${r}-${c}-name`).value=''; 
-    document.getElementById(`in-${r}-${c}-price`).value='';
-    document.getElementById(`in-${r}-${c}-desc`).value=''; 
-    document.getElementById(`in-${r}-${c}-link`).value='';
-    fileIn.value=''; 
-    fileIn.removeAttribute('data-remote');
-    document.querySelector(`label[for="in-${r}-${c}-img"]`).innerHTML = '<i class="fas fa-images"></i> Fotos (Várias)';
-
+    houseData[r][c].push({ id: Date.now(), name, price, desc, link, imgs: finalImages, status: 'pending' });
+    document.getElementById(`in-${r}-${c}-name`).value=''; document.getElementById(`in-${r}-${c}-price`).value=''; document.getElementById(`in-${r}-${c}-desc`).value=''; document.getElementById(`in-${r}-${c}-link`).value=''; fileIn.value=''; fileIn.removeAttribute('data-remote'); document.querySelector(`label[for="in-${r}-${c}-img"]`).innerHTML = '<i class="fas fa-images"></i> Fotos (Várias)';
     renderLists(r, c); updateAllTotals(); saveData();
 };
 
@@ -422,236 +488,145 @@ window.autoFillFromLink = async (r, c) => {
     const link = document.getElementById(`in-${r}-${c}-link`).value; const icon = document.getElementById(`icon-${r}-${c}`);
     if(!link) return; icon.className="fas fa-spinner fa-spin";
     try {
-        const res = await fetch(`https://api.microlink.io?url=${encodeURIComponent(link)}&palette=true`);
-        const d = await res.json();
-        if(d.status==='success') {
-            const m = d.data;
-            if(m.title) document.getElementById(`in-${r}-${c}-name`).value = m.title.substring(0,40);
-            if(m.description) document.getElementById(`in-${r}-${c}-desc`).value = m.description;
-            if(m.image?.url) {
-                const imgIn = document.getElementById(`in-${r}-${c}-img`); imgIn.setAttribute('data-remote', m.image.url);
-                document.querySelector(`label[for="in-${r}-${c}-img"]`).innerHTML = '<i class="fas fa-check"></i> Foto IA Encontrada';
-            }
-        }
+        const res = await fetch(`https://api.microlink.io?url=${encodeURIComponent(link)}&palette=true`); const d = await res.json();
+        if(d.status==='success') { const m = d.data; if(m.title) document.getElementById(`in-${r}-${c}-name`).value = m.title.substring(0,40); if(m.description) document.getElementById(`in-${r}-${c}-desc`).value = m.description; if(m.image?.url) { const imgIn = document.getElementById(`in-${r}-${c}-img`); imgIn.setAttribute('data-remote', m.image.url); document.querySelector(`label[for="in-${r}-${c}-img"]`).innerHTML = '<i class="fas fa-check"></i> Foto IA Encontrada'; } }
     } catch(e) { console.error(e); } finally { icon.className="fas fa-magic"; }
 };
-
 window.removeItem = (r,c,id) => { houseData[r][c]=houseData[r][c].filter(i=>i.id!==id); renderLists(r,c); updateAllTotals(); saveData(); };
 window.toggleStatus = (r,c,id) => { const i=houseData[r][c].find(x=>x.id===id); if(i) i.status=(i.status==='bought'?'pending':'bought'); renderLists(r,c); updateAllTotals(); saveData(); };
-
-// --- DRAG AND DROP ---
-window.dragStart = (e, r, c, id) => {
-    e.target.classList.add('dragging');
-    e.dataTransfer.setData("text/plain", JSON.stringify({ r, c, id }));
-};
+window.dragStart = (e, r, c, id) => { e.target.classList.add('dragging'); e.dataTransfer.setData("text/plain", JSON.stringify({ r, c, id })); };
 window.allowDrop = (e) => { e.preventDefault(); const list = e.target.closest('ul'); if(list) list.classList.add('drag-over'); };
 window.leaveDrop = (e) => { const list = e.target.closest('ul'); if(list) list.classList.remove('drag-over'); };
-
-window.dropItem = (e, targetR, targetC) => {
-    e.preventDefault(); const list = e.target.closest('ul'); if(list) list.classList.remove('drag-over');
-    try {
-        const data = JSON.parse(e.dataTransfer.getData("text/plain"));
-        const { r: originR, c: originC, id: itemId } = data;
-        if (originR === targetR && originC === targetC) return; 
-        const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId); if (itemIndex === -1) return;
-        const item = houseData[originR][originC][itemIndex];
-        houseData[originR][originC].splice(itemIndex, 1);
-        houseData[targetR][targetC].push(item);
-        renderLists(originR, originC); renderLists(targetR, targetC); updateAllTotals(); saveData();
-    } catch (err) { console.error("Drop error:", err); }
-};
-
-window.dropOnRoom = (e, targetRoomId) => {
-    e.preventDefault(); const btn = document.querySelector(`button[data-target="${targetRoomId}"]`); if(btn) btn.classList.remove('drag-over-tab');
-    try {
-        const data = JSON.parse(e.dataTransfer.getData("text/plain"));
-        const { r: originR, c: originC, id: itemId } = data;
-        if (originR === targetRoomId) return; 
-        const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId); if (itemIndex === -1) return;
-        const item = houseData[originR][originC][itemIndex];
-        houseData[originR][originC].splice(itemIndex, 1);
-        const targetCat = houseData[targetRoomId][originC] ? originC : 'essencial';
-        houseData[targetRoomId][targetCat].push(item);
-        renderLists(originR, originC);
-        showToast(`Item movido para ${sections.find(s=>s.id===currentSectionId).rooms.find(rm=>rm.id===targetRoomId).name}`);
-        updateAllTotals(); saveData();
-    } catch (err) { console.error("Room Drop error:", err); }
-};
-
-// --- CTRL+C e CTRL+V ---
-function setupKeyboardShortcuts() {
-    document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
-            if (hoveredItemData) {
-                appClipboard = JSON.parse(JSON.stringify(hoveredItemData));
-                showToast(`Copiado: ${appClipboard.item.name}`);
-            }
-        }
-        if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-            if (appClipboard && currentRoomId) {
-                const newItem = { ...appClipboard.item, id: Date.now(), status: 'pending', name: appClipboard.item.name + ' (Cópia)' };
-                const targetCat = appClipboard.c;
-                if (houseData[currentRoomId] && houseData[currentRoomId][targetCat]) {
-                    houseData[currentRoomId][targetCat].push(newItem);
-                    renderLists(currentRoomId, targetCat);
-                    updateAllTotals(); saveData(); showToast(`Colado em ${targetCat}`);
-                }
-            }
-        }
-    });
-}
-function showToast(msg) {
-    const div = document.createElement('div'); div.className = 'toast-notification';
-    div.innerHTML = `<i class="fas fa-check-circle" style="color:#4CAF50;"></i> ${msg}`;
-    document.body.appendChild(div); setTimeout(() => { div.remove(); }, 3000);
-}
-
-// --- MODAL DE EDIÇÃO E GERENCIAMENTO DE IMAGENS ---
-window.openEditModal = (r, c, id) => {
-    const item = houseData[r][c].find(i => i.id === id); if (!item) return;
-
-    // Normaliza imagens
-    tempEditImages = Array.isArray(item.imgs) && item.imgs.length > 0 ? [...item.imgs] : (item.img ? [item.img] : []);
-
-    document.getElementById('edit-r-origin').value = r;
-    document.getElementById('edit-c-origin').value = c;
-    document.getElementById('edit-id').value = id;
-    document.getElementById('edit-name').value = item.name;
-    document.getElementById('edit-price').value = item.price;
-    document.getElementById('edit-link').value = item.link || '';
-    document.getElementById('edit-desc').value = item.desc || '';
-
-    // Renderiza Galeria no Modal
-    renderEditGallery();
-
-    const roomSelect = document.getElementById('edit-move-room'); roomSelect.innerHTML = '';
-    const currentSection = sections.find(s => s.id === currentSectionId);
-    if(currentSection) { currentSection.rooms.forEach(room => { const opt = document.createElement('option'); opt.value = room.id; opt.text = room.name; if(room.id === r) opt.selected = true; roomSelect.appendChild(opt); }); }
-    document.getElementById('edit-move-cat').value = c;
-    document.getElementById('edit-modal').style.display = 'flex';
-};
-
-window.renderEditGallery = () => {
-    const container = document.getElementById('edit-gallery-container');
-    container.innerHTML = '';
-    tempEditImages.forEach((img, idx) => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'edit-thumb-wrapper';
-        wrapper.innerHTML = `
-            <img src="${img}" class="edit-thumb">
-            <button class="edit-remove-img" onclick="removeEditImage(${idx})">&times;</button>
-        `;
-        container.appendChild(wrapper);
-    });
-};
-
-window.removeEditImage = (idx) => {
-    tempEditImages.splice(idx, 1);
-    renderEditGallery();
-};
-
-function setupEditModalImageInput() {
-    const input = document.getElementById('edit-add-img-input');
-    input.addEventListener('change', async (e) => {
-        const files = e.target.files;
-        if(files.length > 0) {
-            const promises = Array.from(files).map(file => {
-                return new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = (e) => resolve(e.target.result);
-                    reader.readAsDataURL(file);
-                });
-            });
-            const newImages = await Promise.all(promises);
-            tempEditImages = [...tempEditImages, ...newImages];
-            renderEditGallery();
-        }
-        input.value = ''; // Reset input
-    });
-}
-
+window.dropItem = (e, targetR, targetC) => { e.preventDefault(); const list = e.target.closest('ul'); if(list) list.classList.remove('drag-over'); try { const data = JSON.parse(e.dataTransfer.getData("text/plain")); const { r: originR, c: originC, id: itemId } = data; if (originR === targetR && originC === targetC) return; const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId); if (itemIndex === -1) return; const item = houseData[originR][originC][itemIndex]; houseData[originR][originC].splice(itemIndex, 1); houseData[targetR][targetC].push(item); renderLists(originR, originC); renderLists(targetR, targetC); updateAllTotals(); saveData(); } catch (err) { console.error("Drop error:", err); } };
+window.dropOnRoom = (e, targetRoomId) => { e.preventDefault(); const btn = document.querySelector(`button[data-target="${targetRoomId}"]`); if(btn) btn.classList.remove('drag-over-tab'); try { const data = JSON.parse(e.dataTransfer.getData("text/plain")); const { r: originR, c: originC, id: itemId } = data; if (originR === targetRoomId) return; const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId); if (itemIndex === -1) return; const item = houseData[originR][originC][itemIndex]; houseData[originR][originC].splice(itemIndex, 1); const targetCat = houseData[targetRoomId][originC] ? originC : Object.keys(houseData[targetRoomId])[0]; houseData[targetRoomId][targetCat].push(item); renderLists(originR, originC); showToast(`Item movido.`); updateAllTotals(); saveData(); } catch (err) { console.error("Room Drop error:", err); } };
+function setupKeyboardShortcuts() { document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'c') { if (hoveredItemData) { appClipboard = JSON.parse(JSON.stringify(hoveredItemData)); showToast(`Copiado: ${appClipboard.item.name}`); } } if ((e.ctrlKey || e.metaKey) && e.key === 'v') { if (appClipboard && currentRoomId) { const newItem = { ...appClipboard.item, id: Date.now(), status: 'pending', name: appClipboard.item.name + ' (Cópia)' }; const targetCat = houseData[currentRoomId][appClipboard.c] ? appClipboard.c : Object.keys(houseData[currentRoomId])[0]; houseData[currentRoomId][targetCat].push(newItem); renderLists(currentRoomId, targetCat); updateAllTotals(); saveData(); showToast(`Colado.`); } } }); }
+function showToast(msg) { const div = document.createElement('div'); div.className = 'toast-notification'; div.innerHTML = `<i class="fas fa-check-circle" style="color:#4CAF50;"></i> ${msg}`; document.body.appendChild(div); setTimeout(() => { div.remove(); }, 3000); }
+window.openEditModal = (r, c, id) => { const item = houseData[r][c].find(i => i.id === id); if (!item) return; tempEditImages = Array.isArray(item.imgs) && item.imgs.length > 0 ? [...item.imgs] : (item.img ? [item.img] : []); document.getElementById('edit-r-origin').value = r; document.getElementById('edit-c-origin').value = c; document.getElementById('edit-id').value = id; document.getElementById('edit-name').value = item.name; document.getElementById('edit-price').value = item.price; document.getElementById('edit-link').value = item.link || ''; document.getElementById('edit-desc').value = item.desc || ''; renderEditGallery(); const roomSelect = document.getElementById('edit-move-room'); roomSelect.innerHTML = ''; const currentSection = sections.find(s => s.id === currentSectionId); if(currentSection) { currentSection.rooms.forEach(room => { const opt = document.createElement('option'); opt.value = room.id; opt.text = room.name; if(room.id === r) opt.selected = true; roomSelect.appendChild(opt); }); } const catSelect = document.getElementById('edit-move-cat'); catSelect.innerHTML = ''; Object.keys(houseData[r]).forEach(cat => { const opt = document.createElement('option'); opt.value = cat; opt.text = capitalize(cat); if(cat === c) opt.selected = true; catSelect.appendChild(opt); }); roomSelect.onchange = (e) => { const selectedRoom = e.target.value; catSelect.innerHTML = ''; Object.keys(houseData[selectedRoom]).forEach(cat => { const opt = document.createElement('option'); opt.value = cat; opt.text = capitalize(cat); catSelect.appendChild(opt); }); }; document.getElementById('edit-modal').style.display = 'flex'; };
+window.renderEditGallery = () => { const container = document.getElementById('edit-gallery-container'); container.innerHTML = ''; tempEditImages.forEach((img, idx) => { const wrapper = document.createElement('div'); wrapper.className = 'edit-thumb-wrapper'; wrapper.innerHTML = `<img src="${img}" class="edit-thumb"><button class="edit-remove-img" onclick="removeEditImage(${idx})">&times;</button>`; container.appendChild(wrapper); }); };
+window.removeEditImage = (idx) => { tempEditImages.splice(idx, 1); renderEditGallery(); };
+function setupEditModalImageInput() { const input = document.getElementById('edit-add-img-input'); input.addEventListener('change', async (e) => { const files = e.target.files; if(files.length > 0) { const promises = Array.from(files).map(file => { return new Promise((resolve) => { const reader = new FileReader(); reader.onload = (e) => resolve(e.target.result); reader.readAsDataURL(file); }); }); const newImages = await Promise.all(promises); tempEditImages = [...tempEditImages, ...newImages]; renderEditGallery(); } input.value = ''; }); }
 window.closeEditModal = () => { document.getElementById('edit-modal').style.display = 'none'; };
+window.saveEditItem = () => { const rOld = document.getElementById('edit-r-origin').value; const cOld = document.getElementById('edit-c-origin').value; const id = parseInt(document.getElementById('edit-id').value); const rNew = document.getElementById('edit-move-room').value; const cNew = document.getElementById('edit-move-cat').value; const itemIndex = houseData[rOld][cOld].findIndex(i => i.id === id); if (itemIndex === -1) return; const item = houseData[rOld][cOld][itemIndex]; houseData[rOld][cOld].splice(itemIndex, 1); item.name = document.getElementById('edit-name').value; item.price = parseFloat(document.getElementById('edit-price').value) || 0; item.link = document.getElementById('edit-link').value; item.desc = document.getElementById('edit-desc').value; item.imgs = tempEditImages.length > 0 ? tempEditImages : ['https://via.placeholder.com/150/000/fff?text=Sem+Foto']; if (!houseData[rNew]) initializeRoomData({id: rNew}); houseData[rNew][cNew].push(item); closeEditModal(); if (rOld !== rNew) switchRoom(rNew); else { renderLists(rOld, cOld); if(cOld !== cNew) renderLists(rOld, cNew); } updateAllTotals(); saveData(); };
+window.addToChecklist=(r,c)=>{const v=document.getElementById(`new-check-${r}-${c}`).value.trim();if(v){if(!checklistData[r][c]) checklistData[r][c] = []; checklistData[r][c].push(v);document.getElementById(`new-check-${r}-${c}`).value='';/*renderChecklist(r,c);*/saveData();}};
 
-window.saveEditItem = () => {
-    const rOld = document.getElementById('edit-r-origin').value;
-    const cOld = document.getElementById('edit-c-origin').value;
-    const id = parseInt(document.getElementById('edit-id').value);
-    
-    const rNew = document.getElementById('edit-move-room').value;
-    const cNew = document.getElementById('edit-move-cat').value;
-    
-    // Remove do antigo
-    const itemIndex = houseData[rOld][cOld].findIndex(i => i.id === id); if (itemIndex === -1) return;
-    const item = houseData[rOld][cOld][itemIndex];
-    houseData[rOld][cOld].splice(itemIndex, 1); 
-
-    // Atualiza Propriedades
-    item.name = document.getElementById('edit-name').value;
-    item.price = parseFloat(document.getElementById('edit-price').value) || 0;
-    item.link = document.getElementById('edit-link').value;
-    item.desc = document.getElementById('edit-desc').value;
-    
-    // Salva as imagens editadas
-    item.imgs = tempEditImages.length > 0 ? tempEditImages : ['https://via.placeholder.com/150/000/fff?text=Sem+Foto'];
-
-    // Adiciona no novo local
-    if (!houseData[rNew]) initializeRoomData({id: rNew});
-    houseData[rNew][cNew].push(item);
-
-    closeEditModal();
-    if (rOld !== rNew) switchRoom(rNew); else { renderLists(rOld, cOld); if(cOld !== cNew) renderLists(rOld, cNew); }
-    updateAllTotals(); saveData();
-};
-
-// --- CHECKLIST HELPERS ---
-window.addToChecklist=(r,c)=>{const v=document.getElementById(`new-check-${r}-${c}`).value.trim();if(v){checklistData[r][c].push(v);document.getElementById(`new-check-${r}-${c}`).value='';renderChecklist(r,c);saveData();}};
-window.removeCheck=(r,c,i)=>{checklistData[r][c].splice(i,1);renderChecklist(r,c);saveData();};
-window.fillForm=(r,c,n)=>{document.getElementById(`in-${r}-${c}-name`).value=n;document.getElementById(`in-${r}-${c}-price`).focus();};
-function renderChecklist(r,c){const d=document.getElementById(`check-${r}-${c}`);d.innerHTML='';const p=houseData[r][c].map(x=>x.name.toLowerCase().trim());
-checklistData[r][c].forEach((it,ix)=>{if(!p.includes(it.toLowerCase().trim())){const t=document.createElement('div');t.className='checklist-tag';t.innerHTML=`${it} <i class="fas fa-plus" onclick="fillForm('${r}','${c}','${it}')"></i> <i class="fas fa-times" onclick="removeCheck('${r}','${c}',${ix})"></i>`;d.appendChild(t);}});}
-
-// --- TOTAIS ---
+// --- FUNÇÃO PRINCIPAL DE TOTAIS CORRIGIDA ---
 function updateRoomTotals(r) { 
-    // Calcula apenas os valores do cômodo específico 'r'
     let totalRoom = 0;
-    if(houseData[r]) {
-        ['essencial', 'comum', 'desejado'].forEach(cat => {
-            houseData[r][cat].forEach(i => totalRoom += i.price);
-        });
-    }
-    // Atualiza o texto no cabeçalho
-    const statEl = document.getElementById(`room-stat-${r}`);
-    if(statEl) statEl.innerText = `Total: ${formatCurrency(totalRoom)}`;
+    if(houseData[r]) Object.keys(houseData[r]).forEach(cat => {
+        if(Array.isArray(houseData[r][cat])) houseData[r][cat].forEach(i => totalRoom += Number(i.price) || 0)
+    });
+    const statEl = document.getElementById(`room-stat-${r}`); if(statEl) statEl.innerText = `Total: ${formatCurrency(totalRoom)}`;
+    
+    // Atualiza subtotais das colunas individuais
+    if(houseData[r]) Object.keys(houseData[r]).forEach(cat => {
+        let colTotal = 0; 
+        if(Array.isArray(houseData[r][cat])) houseData[r][cat].forEach(i => colTotal += Number(i.price) || 0);
+        const colEl = document.getElementById(`total-${r}-${cat}`); if(colEl) colEl.innerText = formatCurrency(colTotal);
+    });
 }
 
 function updateAllTotals(cryptoVal = 0) {
-    let currentCryptoTotal = 0; investments.forEach(inv => { const p = currentCryptoPrices[inv.coinId] ? currentCryptoPrices[inv.coinId].brl : 0; currentCryptoTotal += (inv.amount * p); });
-    let totals = { ess: 0, com: 0, des: 0 }; let bVal=0, pVal=0; let cTot=0, cBou=0;
+    let currentCryptoTotal = 0; 
+    investments.forEach(inv => { 
+        const p = currentCryptoPrices[inv.coinId] ? currentCryptoPrices[inv.coinId].brl : 0; 
+        currentCryptoTotal += (inv.amount * p); 
+    });
     
-    sections.forEach(sec => sec.rooms.forEach(r => { 
-        if(houseData[r.id]) ['essencial','comum','desejado'].forEach(cat => { 
-            houseData[r.id][cat].forEach(i => { 
-                if(cat==='essencial') totals.ess+=i.price; 
-                if(cat==='comum') totals.com+=i.price; 
-                if(cat==='desejado') totals.des+=i.price; 
-                if(i.status==='bought') { bVal+=i.price; cBou++; } else { pVal+=i.price; } 
-                cTot++; 
-            }); 
-        });
-        // Atualiza o total individual de cada sala também
-        updateRoomTotals(r.id);
-    }));
+    let globalTotals = {}; // Totais por categoria (Ex: { essencial: 1000, gamer: 500 })
+    let totalCost = 0;
+    let totalPaid = 0;
+    let totalPending = 0;
+    let countTotal = 0;
+    let countBought = 0;
     
-    const totalCost = totals.ess+totals.com+totals.des;
-    const fPct = totalCost>0 ? (bVal/totalCost)*100 : 0; document.getElementById('bar-finance').style.width=`${fPct}%`; document.getElementById('prog-text-finance').innerText=`${fPct.toFixed(1)}%`; document.getElementById('val-paid').innerText=`Pago: ${formatCurrency(bVal)}`; document.getElementById('val-pending').innerText=`Falta: ${formatCurrency(pVal)}`;
-    const qPct = cTot>0 ? (cBou/cTot)*100 : 0; document.getElementById('bar-qty').style.width=`${qPct}%`; document.getElementById('prog-text-qty').innerText=`${qPct.toFixed(1)}%`; document.getElementById('qty-paid').innerText=`${cBou} itens`; document.getElementById('qty-pending').innerText=`${cTot-cBou} itens`;
-    const totalMoney = wallet.balance + currentCryptoTotal; const cPct = totalCost>0 ? (totalMoney/totalCost)*100 : 0; const visCPct = cPct>100?100:cPct; document.getElementById('bar-cover').style.width=`${visCPct}%`; document.getElementById('prog-text-cover').innerText=`${cPct.toFixed(1)}%`;
-    document.getElementById('gl-ess').innerText=formatCurrency(totals.ess); document.getElementById('gl-com').innerText=formatCurrency(totals.com); document.getElementById('gl-des').innerText=formatCurrency(totals.des); document.getElementById('gl-total').innerText=formatCurrency(totalCost);
+    // Variáveis para a Seção Atual
+    let sectionTotal = 0;
+    let sectionPaid = 0;
+
+    // Loop Principal: Itera TODAS as seções para calcular tudo de uma vez
+    sections.forEach(sec => {
+        if(sec.rooms) {
+            sec.rooms.forEach(r => {
+                if (houseData[r.id]) {
+                    Object.keys(houseData[r.id]).forEach(cat => {
+                        if (Array.isArray(houseData[r.id][cat])) {
+                            // Inicializa categoria no objeto global se não existir
+                            if (!globalTotals[cat]) globalTotals[cat] = 0;
+                            
+                            houseData[r.id][cat].forEach(i => {
+                                const price = Number(i.price) || 0;
+                                
+                                // 1. Acumula nos Totais Globais
+                                globalTotals[cat] += price;
+                                totalCost += price;
+                                
+                                if(i.status === 'bought') {
+                                    totalPaid += price; 
+                                    countBought++;
+                                } else {
+                                    totalPending += price;
+                                }
+                                countTotal++;
+
+                                // 2. Acumula na Seção Atual (SE estivermos nela)
+                                if (currentSectionId && sec.id === currentSectionId) {
+                                    sectionTotal += price;
+                                    if(i.status === 'bought') sectionPaid += price;
+                                }
+                            });
+                        }
+                    });
+                    // Atualiza o total individual deste cômodo enquanto passamos por ele
+                    updateRoomTotals(r.id);
+                }
+            });
+        }
+    });
+
+    // Atualiza Card de "Custos Projeto" (Topo)
+    const container = document.getElementById('dynamic-totals-container');
+    container.innerHTML = '';
+    Object.keys(globalTotals).forEach(cat => {
+        const row = document.createElement('div');
+        row.className = 'total-row';
+        row.innerHTML = `<span>${capitalize(cat)}:</span> <strong>${formatCurrency(globalTotals[cat])}</strong>`;
+        container.appendChild(row);
+    });
+
+    document.getElementById('gl-total').innerText = formatCurrency(totalCost);
+
+    // Atualiza Barras de Progresso
+    const fPct = totalCost>0 ? (totalPaid/totalCost)*100 : 0; 
+    document.getElementById('bar-finance').style.width=`${fPct}%`; 
+    document.getElementById('prog-text-finance').innerText=`${fPct.toFixed(1)}%`; 
+    document.getElementById('val-paid').innerText=`Pago: ${formatCurrency(totalPaid)}`; 
+    document.getElementById('val-pending').innerText=`Falta: ${formatCurrency(totalPending)}`;
+
+    const qPct = countTotal>0 ? (countBought/countTotal)*100 : 0; 
+    document.getElementById('bar-qty').style.width=`${qPct}%`; 
+    document.getElementById('prog-text-qty').innerText=`${qPct.toFixed(1)}%`; 
+    document.getElementById('qty-paid').innerText=`${countBought} itens`; 
+    document.getElementById('qty-pending').innerText=`${countTotal-countBought} itens`;
+
+    const totalMoney = wallet.balance + currentCryptoTotal; 
+    const cPct = totalCost>0 ? (totalMoney/totalCost)*100 : 0; 
+    const visCPct = cPct>100?100:cPct; 
+    document.getElementById('bar-cover').style.width=`${visCPct}%`; 
+    document.getElementById('prog-text-cover').innerText=`${cPct.toFixed(1)}%`;
     
+    // Cobertura Essencial
+    const essCost = globalTotals['essencial'] || 0;
+    const essPct = essCost>0 ? (totalMoney/essCost)*100 : (totalMoney > 0 ? 100 : 0);
+    const visEssPct = essPct>100?100:essPct;
+    document.getElementById('bar-ess-cover').style.width = `${visEssPct}%`;
+    document.getElementById('prog-text-ess-cover').innerText = `${essPct.toFixed(1)}%`;
+
+    // Atualiza Barra da Seção (Agora garantido pois sectionTotal foi calculado no loop principal)
     if(currentSectionId) { 
-        const sec=sections.find(s=>s.id===currentSectionId); let sT=0, sB=0; 
-        if(sec) sec.rooms.forEach(r => ['essencial','comum','desejado'].forEach(c => houseData[r.id][c].forEach(i=>{sT+=i.price; if(i.status==='bought')sB+=i.price;}))); 
-        document.getElementById('sec-combined-total').innerText=formatCurrency(sT); document.getElementById('sec-combined-bought').innerText=`Pago: ${formatCurrency(sB)}`; document.getElementById('sec-combined-pending').innerText=`Falta: ${formatCurrency(sT-sB)}`; 
+        document.getElementById('sec-combined-total').innerText = formatCurrency(sectionTotal); 
+        document.getElementById('sec-combined-bought').innerText = `Pago: ${formatCurrency(sectionPaid)}`; 
+        document.getElementById('sec-combined-pending').innerText = `Falta: ${formatCurrency(sectionTotal - sectionPaid)}`; 
     }
 }
+
 function formatCurrency(val) { return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
