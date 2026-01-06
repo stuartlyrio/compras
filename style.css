@@ -62,32 +62,35 @@ header h1 { color: var(--accent-color); font-weight: 300; font-size: 1.2rem; }
 .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #222; font-size: 0.9rem; }
 .main-total { border: none; font-size: 1.2rem; margin-top: 10px; padding-top: 10px; border-top: 1px solid #444; }
 
-/* SEÇÕES */
+/* SEÇÕES NAV (Horizontal + Botão Criar) */
 .section-area { background: var(--card-bg); padding: 20px 0 0; border-bottom: 1px solid var(--border-color); margin-bottom: 30px; }
-.section-controls { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
-.section-controls input { width: 300px; padding: 10px; background: #0e0e0e; border: 1px solid var(--border-color); color: white; border-radius: 6px; outline: none; }
-.section-controls button { background: var(--accent-color); border: none; padding: 0 20px; border-radius: 6px; font-weight: bold; cursor: pointer; }
-.section-nav { display: flex; justify-content: center; gap: 5px; padding: 0 15px; }
-.section-tab { padding: 12px 30px; background: #111; border-radius: 8px 8px 0 0; cursor: pointer; color: #666; border: 1px solid var(--border-color); border-bottom: none; }
+.section-nav { display: flex; align-items: center; gap: 5px; padding: 0 15px; overflow-x: auto; }
+.section-tab { padding: 12px 30px; background: #111; border-radius: 8px 8px 0 0; cursor: pointer; color: #666; border: 1px solid var(--border-color); border-bottom: none; white-space: nowrap; }
 .section-tab.active { background: var(--accent-color); color: #000; font-weight: bold; }
+
+/* Botão + de adicionar aba */
+.add-tab-btn { background: transparent; border: 2px dashed #444; color: #666; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 50%; cursor: pointer; transition: 0.2s; margin-left: 10px; flex-shrink: 0; }
+.add-tab-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
+
 .section-summary-bar { background: #111; border-top: 2px solid var(--accent-color); padding: 15px; text-align: center; }
 .sec-total-final { background: var(--card-bg); border: 1px solid var(--accent-color); padding: 10px 25px; border-radius: 8px; display: inline-block; }
 .sec-total-final b { font-size: 1.2rem; color: var(--accent-color); display: block; } .sec-final-sub { font-size: 0.75rem; color: var(--text-muted); } .c-green { color: var(--success-color); } .c-red { color: var(--pending-color); }
+.delete-section-mini-btn { background: none; border: none; color: #555; cursor: pointer; margin-left: 10px; } .delete-section-mini-btn:hover { color: var(--pending-color); }
 
-/* CÔMODOS */
-.room-controls { display: flex; justify-content: center; gap: 10px; margin: 20px auto; max-width: 800px; background: var(--card-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); }
-.room-controls input { flex-grow: 1; padding: 8px; background: #0e0e0e; border: 1px solid #333; color: white; border-radius: 4px; outline: none; }
-.room-controls button { background: var(--accent-color); border: none; padding: 8px 20px; border-radius: 4px; font-weight: bold; cursor: pointer; }
-.delete-section-btn { background: #333 !important; color: var(--pending-color) !important; border: 1px solid var(--pending-color) !important; }
-.room-nav { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
-.room-btn { background: transparent; border: 1px solid var(--border-color); color: #888; padding: 8px 20px; border-radius: 20px; cursor: pointer; transition: 0.2s; }
-.room-btn.active { background: var(--accent-color); color: #000; font-weight: bold; }
-.room-btn.drag-over-tab { background-color: var(--accent-color) !important; color: #000 !important; box-shadow: 0 0 15px var(--accent-color); transform: scale(1.1); }
+/* CÔMODOS NAV (Horizontal + Botão Criar) */
+.room-nav { display: flex; align-items: center; gap: 10px; overflow-x: auto; padding-bottom: 20px; margin: 0 20px; }
+.room-btn { background: #19191a; border: 1px solid var(--border-color); color: #888; padding: 10px 25px; border-radius: 25px; cursor: pointer; transition: 0.2s; white-space: nowrap; font-weight: bold; }
+.room-btn.active { border: 2px solid var(--accent-color); transform: scale(1.05); }
+.room-btn.drag-over-tab { box-shadow: 0 0 15px var(--accent-color); transform: scale(1.1); border-color: var(--accent-color); }
+
+/* ESTILOS DE PERSONALIZAÇÃO DE COR NO MODAL */
+.color-picker-group { display: flex; gap: 20px; margin-bottom: 20px; }
+.room-preview { padding: 10px 25px; border-radius: 25px; display: inline-block; border: 1px solid var(--border-color); font-weight: bold; margin-top: 10px; transition: 0.2s; }
 
 .container { max-width: 1400px; margin: 0 auto; padding: 0 20px; }
 .room-section { display: none; animation: fadeIn 0.4s; } .room-section.active { display: block; } @keyframes fadeIn { from {opacity: 0; transform: translateY(10px);} to {opacity: 1; transform: translateY(0);} }
 .room-header { background: var(--card-bg); padding: 20px; border-radius: 10px; margin-bottom: 20px; border-left: 5px solid var(--accent-color); border: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
-.room-stats { display: flex; gap: 20px; font-size: 0.9rem; }
+.room-stats { display: flex; gap: 20px; font-size: 1.1rem; font-weight: bold; color: var(--accent-color); }
 .columns-wrapper { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; } @media (max-width: 1024px) { .columns-wrapper { grid-template-columns: 1fr; } }
 .column { background: var(--card-bg); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }
 .column h3 { text-align: center; color: var(--accent-color); text-transform: uppercase; border-bottom: 2px solid var(--bg-color); padding-bottom: 10px; margin-bottom: 15px; font-size: 0.9rem; }
@@ -124,7 +127,6 @@ header h1 { color: var(--accent-color); font-weight: 300; font-size: 1.2rem; }
 /* CARROSSEL DE IMAGENS */
 .carousel-wrapper { position: relative; width: 150px; height: 150px; background: #000; border-radius: 8px; border: 1px solid #333; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; }
 .item-img { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; display: block; }
-/* SETAS VISÍVEIS AGORA (Opacity: 1) */
 .carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.6); color: white; border: none; cursor: pointer; padding: 5px 8px; font-size: 1rem; z-index: 5; border-radius: 4px; transition: 0.2s; opacity: 1; }
 .carousel-btn:hover { background: var(--accent-color); color: #000; }
 .prev-btn { left: 5px; } .next-btn { right: 5px; }

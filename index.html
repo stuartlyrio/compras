@@ -36,7 +36,6 @@
 
 <div id="app-content" style="display:none;">
     <div class="dashboard-area">
-        
         <div class="dashboard-card wallet-card">
             <div class="card-title"><i class="fas fa-wallet"></i> Carteira (Dinheiro)</div>
             <div class="wallet-display">
@@ -59,12 +58,10 @@
                 <i class="fab fa-bitcoin"></i> Criptoativos
                 <button onclick="refreshCryptoPrices()" class="refresh-btn" title="Atualizar Cotação"><i class="fas fa-sync-alt"></i></button>
             </div>
-            
             <div class="wallet-display" style="background:#222; border:1px solid #f3ba2f;">
                 <span class="wallet-label">Total Convertido</span>
                 <span class="wallet-value" id="crypto-total-brl" style="color:#f3ba2f;">R$ 0,00</span>
             </div>
-
             <div class="wallet-controls">
                 <select id="crypto-select" class="auth-input" style="margin-bottom:5px;">
                     <option value="bitcoin">Bitcoin (BTC)</option>
@@ -73,10 +70,9 @@
                     <option value="tether">Tether (USDT)</option>
                     <option value="ripple">XRP</option>
                 </select>
-                <input type="number" id="crypto-amount" placeholder="Quantidade (ex: 0.05)" step="0.000001">
+                <input type="number" id="crypto-amount" placeholder="Quantidade" step="0.000001">
                 <button class="btn-deposit" onclick="addCrypto()" style="width:100%; margin-top:5px; background:#f3ba2f; color:black;">Adicionar Ativo</button>
             </div>
-
             <ul id="crypto-list" class="wallet-history"></ul>
         </div>
 
@@ -95,7 +91,6 @@
             <div class="progress-group">
                 <div class="prog-label"><span>Poder Total (Caixa + Invest)</span><span id="prog-text-cover">0%</span></div>
                 <div class="progress-track"><div class="progress-fill fill-cover" id="bar-cover" style="width: 0%"></div></div>
-                <div class="prog-details"><small style="color:#888;">Cobre o custo total do projeto?</small></div>
             </div>
         </div>
 
@@ -109,13 +104,14 @@
     </div>
 
     <div class="section-area">
-        <div class="section-controls">
-            <input type="text" id="new-section-name" placeholder="Nova Seção">
-            <button onclick="addNewSection()"><i class="fas fa-folder-plus"></i> Criar</button>
-        </div>
-        <nav class="section-nav" id="section-nav"></nav>
+        <nav class="section-nav" id="section-nav">
+            </nav>
+        
         <div class="section-summary-bar" id="section-summary-bar" style="display:none;">
-            <div class="sec-total-label">Seção: <span id="current-section-name-display" style="color:var(--accent-color)">---</span></div>
+            <div class="sec-total-label">
+                Seção: <span id="current-section-name-display" style="color:var(--accent-color)">---</span>
+                <button onclick="deleteCurrentSection()" class="delete-section-mini-btn" title="Excluir Seção"><i class="fas fa-trash"></i></button>
+            </div>
             <div class="sec-total-values">
                 <div class="sec-total-final">Total Seção: <b id="sec-combined-total">R$ 0,00</b>
                 <div class="sec-final-sub"><span class="c-green" id="sec-combined-bought">Pago: R$ 0,00</span> | <span class="c-red" id="sec-combined-pending">Falta: R$ 0,00</span></div></div>
@@ -124,14 +120,51 @@
     </div>
 
     <div id="room-area-wrapper" style="display:none;">
-        <div class="room-controls">
-            <span class="control-label">Cômodos:</span>
-            <input type="text" id="new-room-name" placeholder="Novo Cômodo...">
-            <button onclick="addNewRoom()"><i class="fas fa-plus"></i> Add</button>
-            <button onclick="deleteCurrentSection()" class="delete-section-btn"><i class="fas fa-trash"></i> Excluir Seção</button>
-        </div>
-        <nav class="room-nav" id="room-nav"></nav>
+        <nav class="room-nav" id="room-nav">
+            </nav>
         <div class="container" id="main-container"></div>
+    </div>
+</div>
+
+<div id="new-section-modal" class="auth-overlay" style="display:none;">
+    <div class="auth-box">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h2 style="margin:0;">Nova Seção</h2>
+            <span onclick="document.getElementById('new-section-modal').style.display='none'" style="cursor:pointer; font-size:1.5rem;">&times;</span>
+        </div>
+        <input type="text" id="modal-section-name" class="auth-input" placeholder="Nome da Seção (ex: Mobília)">
+        <button onclick="saveNewSection()" class="btn-auth-action" style="margin-top:15px;">Criar Seção</button>
+    </div>
+</div>
+
+<div id="new-room-modal" class="auth-overlay" style="display:none;">
+    <div class="auth-box">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h2 style="margin:0;">Novo Cômodo</h2>
+            <span onclick="document.getElementById('new-room-modal').style.display='none'" style="cursor:pointer; font-size:1.5rem;">&times;</span>
+        </div>
+        
+        <input type="text" id="modal-room-name" class="auth-input" placeholder="Nome (ex: Quarto Gamer)" oninput="updateRoomPreview()">
+        
+        <div class="color-picker-group">
+            <div style="flex:1;">
+                <label style="font-size:0.8rem; color:#888;">Cor do Fundo</label>
+                <input type="color" id="modal-room-bg" value="#19191a" style="width:100%; height:40px; border:none; border-radius:4px;" oninput="updateRoomPreview()">
+            </div>
+            <div style="flex:1;">
+                <label style="font-size:0.8rem; color:#888;">Cor da Letra</label>
+                <input type="color" id="modal-room-text" value="#888888" style="width:100%; height:40px; border:none; border-radius:4px;" oninput="updateRoomPreview()">
+            </div>
+        </div>
+
+        <div style="margin: 20px 0; text-align:center;">
+            <span style="font-size:0.8rem; color:#aaa; display:block; margin-bottom:5px;">Prévia:</span>
+            <div id="room-preview-box" class="room-preview">
+                Nome do Cômodo
+            </div>
+        </div>
+
+        <button onclick="saveNewRoom()" class="btn-auth-action">Criar Cômodo</button>
     </div>
 </div>
 
@@ -160,21 +193,18 @@
             </div>
         </div>
 
-        <label style="color:#888; font-size:0.8rem;">Descrição / Detalhes</label>
+        <label style="color:#888; font-size:0.8rem;">Descrição</label>
         <textarea id="edit-desc" class="auth-input" style="margin-bottom:15px; height:80px; resize:none;"></textarea>
 
         <div style="background:#222; padding:15px; border-radius:8px; border:1px solid #333; margin-bottom:15px;">
-            <label style="color:#fff; font-size:0.8rem; display:block; margin-bottom:10px;">📸 Galeria de Imagens:</label>
-            
-            <div id="edit-gallery-container" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
-                </div>
-
+            <label style="color:#fff; font-size:0.8rem; display:block; margin-bottom:10px;">📸 Galeria:</label>
+            <div id="edit-gallery-container" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;"></div>
             <input type="file" id="edit-add-img-input" accept="image/*" multiple style="display:none">
             <label for="edit-add-img-input" class="file-upload-btn" style="width:100%;"><i class="fas fa-plus"></i> Adicionar Mais Fotos</label>
         </div>
 
         <div style="background:#222; padding:15px; border-radius:8px; border:1px dashed #444; margin-bottom:20px;">
-            <label style="color:var(--accent-color); font-size:0.8rem; display:block; margin-bottom:10px;">📦 Mover para outro local:</label>
+            <label style="color:var(--accent-color); font-size:0.8rem; display:block; margin-bottom:10px;">📦 Mover:</label>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                 <div>
                     <span style="font-size:0.7rem; color:#888;">Cômodo</span>

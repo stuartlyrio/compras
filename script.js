@@ -19,7 +19,7 @@ let currentCryptoPrices = {};
 // Variáveis Globais
 let appClipboard = null;
 let hoveredItemData = null;
-let tempEditImages = []; // Armazena fotos durante a edição
+let tempEditImages = [];
 
 // --- INICIALIZAÇÃO ---
 window.loadUserData = async (uid) => {
@@ -131,7 +131,7 @@ function updateCryptoTotal() {
 }
 function renderCryptoList() { updateCryptoTotal(); }
 
-// --- NAV & SEÇÕES & CÔMODOS ---
+// --- NAV DE SEÇÕES (COM BOTÃO + AO LADO) ---
 function renderSectionNav() {
     const nav = document.getElementById('section-nav'); nav.innerHTML = '';
     sections.forEach(sec => {
@@ -139,7 +139,14 @@ function renderSectionNav() {
         if(sec.id === currentSectionId) btn.classList.add('active');
         btn.innerText = sec.name; btn.onclick = () => switchSection(sec.id); nav.appendChild(btn);
     });
+    // Botão Adicionar Seção (ao lado)
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-tab-btn';
+    addBtn.innerHTML = '<i class="fas fa-plus"></i>';
+    addBtn.onclick = () => { document.getElementById('new-section-modal').style.display='flex'; };
+    nav.appendChild(addBtn);
 }
+
 window.switchSection = (id) => {
     currentSectionId = id; renderSectionNav();
     document.getElementById('section-summary-bar').style.display = 'block';
@@ -148,47 +155,110 @@ window.switchSection = (id) => {
     renderRoomsNav(); updateAllTotals();
     const sec = sections.find(s=>s.id===id);
     if(sec && sec.rooms.length > 0) switchRoom(sec.rooms[0].id);
-    else document.getElementById('main-container').innerHTML = '<div style="text-align:center; padding:30px; color:#666">Vazio.</div>';
+    else document.getElementById('main-container').innerHTML = '<div style="text-align:center; padding:30px; color:#666">Vazio. Clique no + para criar um cômodo.</div>';
 };
-window.addNewSection = () => {
-    const name = document.getElementById('new-section-name').value.trim(); if(!name) return;
-    const id = 'sec-'+Date.now(); sections.push({id, name, rooms:[]});
-    document.getElementById('new-section-name').value = ''; switchSection(id); saveData();
+
+// Salvar Nova Seção (Modal)
+window.saveNewSection = () => {
+    const name = document.getElementById('modal-section-name').value.trim();
+    if(!name) return;
+    const id = 'sec-'+Date.now(); 
+    sections.push({id, name, rooms:[]});
+    document.getElementById('modal-section-name').value = '';
+    document.getElementById('new-section-modal').style.display = 'none';
+    switchSection(id); saveData();
 };
+
 window.deleteCurrentSection = () => {
-    if(!currentSectionId || !confirm("Apagar?")) return;
+    if(!currentSectionId || !confirm("Apagar toda a seção e itens?")) return;
     sections = sections.filter(s=>s.id!==currentSectionId);
     if(sections.length>0) switchSection(sections[0].id); else { currentSectionId=null; renderSectionNav(); document.getElementById('section-summary-bar').style.display='none'; document.getElementById('room-area-wrapper').style.display='none'; }
     updateAllTotals(); saveData();
 };
 
+// --- NAV DE CÔMODOS (COM BOTÃO + E CORES) ---
 function renderRoomsNav() {
     const nav = document.getElementById('room-nav'); nav.innerHTML = '';
     const sec = sections.find(s=>s.id===currentSectionId); if(!sec) return;
+    
     sec.rooms.forEach(room => {
-        const btn = document.createElement('button'); btn.className = 'room-btn'; btn.innerText = room.name;
-        btn.onclick = () => switchRoom(room.id); btn.dataset.target = room.id;
+        const btn = document.createElement('button'); 
+        btn.className = 'room-btn'; 
+        btn.innerText = room.name;
+        
+        // Aplica cores personalizadas se existirem
+        if (room.bgColor) btn.style.backgroundColor = room.bgColor;
+        if (room.textColor) btn.style.color = room.textColor;
+        // Se a cor for clara/escura, a borda pode precisar de ajuste, mas vamos manter simples
+
+        btn.onclick = () => switchRoom(room.id); 
+        btn.dataset.target = room.id;
         btn.ondragover = (e) => { e.preventDefault(); btn.classList.add('drag-over-tab'); };
         btn.ondragleave = (e) => { btn.classList.remove('drag-over-tab'); };
         btn.ondrop = (e) => dropOnRoom(e, room.id);
         nav.appendChild(btn);
     });
+
+    // Botão Adicionar Cômodo (ao lado)
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-tab-btn';
+    addBtn.innerHTML = '<i class="fas fa-plus"></i>';
+    addBtn.onclick = () => { 
+        // Reset modal values
+        document.getElementById('modal-room-name').value = '';
+        document.getElementById('modal-room-bg').value = '#19191a';
+        document.getElementById('modal-room-text').value = '#888888';
+        updateRoomPreview();
+        document.getElementById('new-room-modal').style.display='flex'; 
+    };
+    nav.appendChild(addBtn);
 }
-window.addNewRoom = () => {
-    if(!currentSectionId) return; const name = document.getElementById('new-room-name').value.trim(); if(!name) return;
-    const id = name.toLowerCase().replace(/[^a-z0-9]/g,'')+'-'+Date.now();
-    sections.find(s=>s.id===currentSectionId).rooms.push({id, name});
-    initializeRoomData({id, name}); document.getElementById('new-room-name').value=''; renderRoomsNav(); switchRoom(id); updateAllTotals(); saveData();
+
+// Preview em tempo real no Modal
+window.updateRoomPreview = () => {
+    const name = document.getElementById('modal-room-name').value || 'Nome do Cômodo';
+    const bg = document.getElementById('modal-room-bg').value;
+    const txt = document.getElementById('modal-room-text').value;
+    const preview = document.getElementById('room-preview-box');
+    
+    preview.innerText = name;
+    preview.style.backgroundColor = bg;
+    preview.style.color = txt;
 };
+
+// Salvar Novo Cômodo com Cores
+window.saveNewRoom = () => {
+    if(!currentSectionId) return; 
+    const name = document.getElementById('modal-room-name').value.trim(); 
+    const bgColor = document.getElementById('modal-room-bg').value;
+    const textColor = document.getElementById('modal-room-text').value;
+    
+    if(!name) return;
+    
+    const id = name.toLowerCase().replace(/[^a-z0-9]/g,'')+'-'+Date.now();
+    
+    // Salva com as cores
+    sections.find(s=>s.id===currentSectionId).rooms.push({id, name, bgColor, textColor});
+    
+    initializeRoomData({id, name}); 
+    document.getElementById('new-room-modal').style.display='none';
+    renderRoomsNav(); switchRoom(id); updateAllTotals(); saveData();
+};
+
 window.switchRoom = (roomId) => {
     currentRoomId = roomId;
     document.querySelectorAll('.room-btn').forEach(b=>b.classList.remove('active'));
     const btn = document.querySelector(`button[data-target="${roomId}"]`); if(btn) btn.classList.add('active');
+    
     const container = document.getElementById('main-container');
     const roomName = btn ? btn.innerText : 'Cômodo';
+    
     container.innerHTML = `
         <div class="room-section active" id="section-${roomId}">
-            <div class="room-header"><h2>${roomName}</h2><div class="room-stats"><span id="room-stat-${roomId}"></span></div></div>
+            <div class="room-header">
+                <h2>${roomName}</h2>
+                <div class="room-stats" id="room-stat-${roomId}">Total: R$ 0,00</div>
+            </div>
             <div class="columns-wrapper">
                 ${renderColumnHTML(roomId, 'essencial', 'Essenciais')}
                 ${renderColumnHTML(roomId, 'comum', 'Comuns')}
@@ -541,16 +611,47 @@ function renderChecklist(r,c){const d=document.getElementById(`check-${r}-${c}`)
 checklistData[r][c].forEach((it,ix)=>{if(!p.includes(it.toLowerCase().trim())){const t=document.createElement('div');t.className='checklist-tag';t.innerHTML=`${it} <i class="fas fa-plus" onclick="fillForm('${r}','${c}','${it}')"></i> <i class="fas fa-times" onclick="removeCheck('${r}','${c}',${ix})"></i>`;d.appendChild(t);}});}
 
 // --- TOTAIS ---
-function updateRoomTotals(r) { document.getElementById(`room-stat-${r}`).innerText = "Atualizado"; }
+function updateRoomTotals(r) { 
+    // Calcula apenas os valores do cômodo específico 'r'
+    let totalRoom = 0;
+    if(houseData[r]) {
+        ['essencial', 'comum', 'desejado'].forEach(cat => {
+            houseData[r][cat].forEach(i => totalRoom += i.price);
+        });
+    }
+    // Atualiza o texto no cabeçalho
+    const statEl = document.getElementById(`room-stat-${r}`);
+    if(statEl) statEl.innerText = `Total: ${formatCurrency(totalRoom)}`;
+}
+
 function updateAllTotals(cryptoVal = 0) {
     let currentCryptoTotal = 0; investments.forEach(inv => { const p = currentCryptoPrices[inv.coinId] ? currentCryptoPrices[inv.coinId].brl : 0; currentCryptoTotal += (inv.amount * p); });
     let totals = { ess: 0, com: 0, des: 0 }; let bVal=0, pVal=0; let cTot=0, cBou=0;
-    sections.forEach(sec => sec.rooms.forEach(r => { if(houseData[r.id]) ['essencial','comum','desejado'].forEach(cat => { houseData[r.id][cat].forEach(i => { if(cat==='essencial') totals.ess+=i.price; if(cat==='comum') totals.com+=i.price; if(cat==='desejado') totals.des+=i.price; if(i.status==='bought') { bVal+=i.price; cBou++; } else { pVal+=i.price; } cTot++; }); }); }));
+    
+    sections.forEach(sec => sec.rooms.forEach(r => { 
+        if(houseData[r.id]) ['essencial','comum','desejado'].forEach(cat => { 
+            houseData[r.id][cat].forEach(i => { 
+                if(cat==='essencial') totals.ess+=i.price; 
+                if(cat==='comum') totals.com+=i.price; 
+                if(cat==='desejado') totals.des+=i.price; 
+                if(i.status==='bought') { bVal+=i.price; cBou++; } else { pVal+=i.price; } 
+                cTot++; 
+            }); 
+        });
+        // Atualiza o total individual de cada sala também
+        updateRoomTotals(r.id);
+    }));
+    
     const totalCost = totals.ess+totals.com+totals.des;
     const fPct = totalCost>0 ? (bVal/totalCost)*100 : 0; document.getElementById('bar-finance').style.width=`${fPct}%`; document.getElementById('prog-text-finance').innerText=`${fPct.toFixed(1)}%`; document.getElementById('val-paid').innerText=`Pago: ${formatCurrency(bVal)}`; document.getElementById('val-pending').innerText=`Falta: ${formatCurrency(pVal)}`;
     const qPct = cTot>0 ? (cBou/cTot)*100 : 0; document.getElementById('bar-qty').style.width=`${qPct}%`; document.getElementById('prog-text-qty').innerText=`${qPct.toFixed(1)}%`; document.getElementById('qty-paid').innerText=`${cBou} itens`; document.getElementById('qty-pending').innerText=`${cTot-cBou} itens`;
     const totalMoney = wallet.balance + currentCryptoTotal; const cPct = totalCost>0 ? (totalMoney/totalCost)*100 : 0; const visCPct = cPct>100?100:cPct; document.getElementById('bar-cover').style.width=`${visCPct}%`; document.getElementById('prog-text-cover').innerText=`${cPct.toFixed(1)}%`;
     document.getElementById('gl-ess').innerText=formatCurrency(totals.ess); document.getElementById('gl-com').innerText=formatCurrency(totals.com); document.getElementById('gl-des').innerText=formatCurrency(totals.des); document.getElementById('gl-total').innerText=formatCurrency(totalCost);
-    if(currentSectionId) { const sec=sections.find(s=>s.id===currentSectionId); let sT=0, sB=0; if(sec) sec.rooms.forEach(r => ['essencial','comum','desejado'].forEach(c => houseData[r.id][c].forEach(i=>{sT+=i.price; if(i.status==='bought')sB+=i.price;}))); document.getElementById('sec-combined-total').innerText=formatCurrency(sT); document.getElementById('sec-combined-bought').innerText=`Pago: ${formatCurrency(sB)}`; document.getElementById('sec-combined-pending').innerText=`Falta: ${formatCurrency(sT-sB)}`; }
+    
+    if(currentSectionId) { 
+        const sec=sections.find(s=>s.id===currentSectionId); let sT=0, sB=0; 
+        if(sec) sec.rooms.forEach(r => ['essencial','comum','desejado'].forEach(c => houseData[r.id][c].forEach(i=>{sT+=i.price; if(i.status==='bought')sB+=i.price;}))); 
+        document.getElementById('sec-combined-total').innerText=formatCurrency(sT); document.getElementById('sec-combined-bought').innerText=`Pago: ${formatCurrency(sB)}`; document.getElementById('sec-combined-pending').innerText=`Falta: ${formatCurrency(sT-sB)}`; 
+    }
 }
 function formatCurrency(val) { return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
