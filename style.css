@@ -67,7 +67,7 @@ header h1 { color: var(--accent-color); font-weight: 300; font-size: 1.2rem; }
 .fill-finance { background: linear-gradient(90deg, #60d4ea, #4dd0e1); } 
 .fill-qty { background: linear-gradient(90deg, #81c784, #66bb6a); }
 .fill-cover { background: linear-gradient(90deg, #b388ff, #f3ba2f); }
-.fill-ess-cover { background: linear-gradient(90deg, #ff9800, #ffc107); } /* Laranja */
+.fill-ess-cover { background: linear-gradient(90deg, #ff9800, #ffc107); }
 .prog-details { display: flex; justify-content: space-between; font-size: 0.75rem; margin-top: 3px; }
 
 /* TOTAIS */
@@ -75,7 +75,7 @@ header h1 { color: var(--accent-color); font-weight: 300; font-size: 1.2rem; }
 .total-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #222; font-size: 0.9rem; }
 .main-total { border: none; font-size: 1.2rem; margin-top: 10px; padding-top: 10px; border-top: 1px solid #444; }
 
-/* CÔMODOS NAV (AGORA O PRINCIPAL) */
+/* CÔMODOS NAV */
 .room-nav-container { background: var(--card-bg); padding: 20px 0; border-bottom: 1px solid var(--border-color); margin-bottom: 30px; }
 .room-nav { display: flex; align-items: center; justify-content: center; gap: 10px; overflow-x: auto; padding: 0 20px; }
 .room-btn { background: #19191a; border: 1px solid var(--border-color); color: #888; padding: 10px 25px; border-radius: 25px; cursor: pointer; transition: 0.2s; white-space: nowrap; font-weight: bold; }
@@ -87,22 +87,9 @@ header h1 { color: var(--accent-color); font-weight: 300; font-size: 1.2rem; }
 .color-picker-group { display: flex; gap: 20px; margin-bottom: 20px; }
 .room-preview { padding: 10px 25px; border-radius: 25px; display: inline-block; border: 1px solid var(--border-color); font-weight: bold; margin-top: 10px; transition: 0.2s; }
 
-/* SELEÇÃO DE CÔMODOS NO MODAL (ACORDEÃO) - VISUAL REFINADO */
-.room-selector-header {
-    background: #2a2a2a;
-    padding: 12px;
-    border-radius: 6px;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: var(--accent-color);
-    font-weight: bold;
-    border: 1px solid #444;
-    transition: background 0.2s;
-}
+/* SELEÇÃO DE CÔMODOS */
+.room-selector-header { background: #2a2a2a; padding: 12px; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; color: var(--accent-color); font-weight: bold; border: 1px solid #444; transition: background 0.2s; }
 .room-selector-header:hover { background: #333; border-color: var(--accent-color); }
-
 .room-checkbox-row { margin-left: 10px; padding: 5px 0; color: #fff; font-size: 0.95rem; display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .room-checkbox-row:hover { background: rgba(255,255,255,0.05); border-radius: 4px; }
 .room-checkbox-row input { transform: scale(1.3); accent-color: var(--accent-color); cursor: pointer; }
@@ -117,8 +104,6 @@ header h1 { color: var(--accent-color); font-weight: 300; font-size: 1.2rem; }
 .room-stats { display: flex; gap: 20px; font-size: 1.1rem; font-weight: bold; color: var(--accent-color); }
 .btn-add-list { background: transparent; border: 1px solid var(--accent-color); color: var(--accent-color); padding: 5px 15px; border-radius: 5px; cursor: pointer; font-size: 0.8rem; margin-left: 10px; display: flex; align-items: center; gap: 5px; }
 .btn-add-list:hover { background: var(--accent-color); color: #000; }
-
-/* BOTÃO DE EXCLUIR CÔMODO */
 .btn-delete-room { background: transparent; border: 1px solid var(--pending-color); color: var(--pending-color); padding: 5px 15px; border-radius: 5px; cursor: pointer; font-size: 0.8rem; margin-left: 10px; display: flex; align-items: center; gap: 5px; transition: 0.2s; }
 .btn-delete-room:hover { background: var(--pending-color); color: white; }
 
@@ -126,8 +111,12 @@ header h1 { color: var(--accent-color); font-weight: 300; font-size: 1.2rem; }
 .column { background: var(--card-bg); padding: 15px; border-radius: 10px; border: 1px solid var(--border-color); }
 .column h3 { text-align: center; color: var(--accent-color); text-transform: uppercase; border-bottom: 2px solid var(--bg-color); padding-bottom: 10px; margin-bottom: 15px; font-size: 0.9rem; display: flex; justify-content: space-between; align-items: center; }
 .col-total { font-size: 0.8rem; color: #888; background: #222; padding: 2px 8px; border-radius: 4px; }
-.btn-edit-list-name { background: none; border: none; color: #555; cursor: pointer; font-size: 0.8rem; margin-left: 5px; }
+
+/* BOTÕES DA COLUNA (EDITAR E REMOVER) */
+.btn-edit-list-name { background: none; border: none; color: #555; cursor: pointer; font-size: 0.8rem; margin-left: 5px; transition: 0.2s; }
 .btn-edit-list-name:hover { color: var(--accent-color); }
+.btn-delete-list { background: none; border: none; color: #555; cursor: pointer; font-size: 0.8rem; margin-left: 5px; transition: 0.2s; }
+.btn-delete-list:hover { color: var(--pending-color); }
 
 /* CHECKLIST & FORM */
 .checklist-area { background: #0e0e0e; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px dashed #333; }
