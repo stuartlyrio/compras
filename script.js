@@ -1,12 +1,11 @@
 // --- DADOS E CONFIGURAÇÕES ---
 const defaultCategories = ['essencial', 'comum', 'desejado'];
 
-let sections = [];
+let rooms = []; // NOVA ESTRUTURA PRINCIPAL
 let houseData = {}; 
 let checklistData = {};
 let wallet = { balance: 0, history: [] };
 let investments = [];
-let currentSectionId = null;
 let currentRoomId = null;
 let currentCryptoPrices = {};
 
@@ -22,18 +21,33 @@ window.loadUserData = async (uid) => {
         const docSnap = await window.getDoc(docRef);
         if (docSnap.exists()) {
             const data = docSnap.data();
-            sections = data.sections || [];
+            
+            // LÓGICA DE MIGRAÇÃO: SE TIVER SEÇÕES ANTIGAS, TRAZ OS CÔMODOS PARA A NOVA LISTA
+            if (data.sections && (!data.rooms || data.rooms.length === 0)) {
+                console.log("Migrando estrutura antiga de seções...");
+                rooms = [];
+                data.sections.forEach(sec => {
+                    if (sec.rooms) {
+                        sec.rooms.forEach(r => rooms.push(r));
+                    }
+                });
+            } else {
+                rooms = data.rooms || [];
+            }
+
             houseData = data.houseData || {};
             checklistData = data.checklistData || {};
             wallet = data.wallet || { balance: 0, history: [] };
             investments = data.investments || [];
         } else {
-            sections = [{ id: 'mobilia', name: 'Mobília', rooms: [{ id: 'sala', name: 'Sala' }, { id: 'cozinha', name: 'Cozinha' }] }];
-            sections.forEach(sec => sec.rooms.forEach(room => initializeRoomData(room)));
+            // DADOS INICIAIS SE FOR USUÁRIO NOVO
+            rooms = [{ id: 'sala', name: 'Sala' }, { id: 'cozinha', name: 'Cozinha' }];
+            rooms.forEach(room => initializeRoomData(room));
             saveData();
         }
-        if(sections.length > 0) switchSection(sections[0].id);
-        renderSectionNav();
+        
+        if(rooms.length > 0) switchRoom(rooms[0].id);
+        renderRoomsNav();
         updateWalletUI();
         refreshCryptoPrices();
         renderCryptoList();
@@ -46,7 +60,8 @@ window.loadUserData = async (uid) => {
 const saveData = async () => {
     if (!window.currentUser) return;
     const uid = window.currentUser.uid;
-    const dataToSave = { sections, houseData, checklistData, wallet, investments };
+    // SALVA A NOVA ESTRUTURA SEM SEÇÕES
+    const dataToSave = { rooms, houseData, checklistData, wallet, investments };
     try { await window.setDoc(window.doc(window.db, "users", uid), dataToSave, { merge: true }); } catch (e) { console.error("Erro save:", e); }
 };
 
@@ -125,68 +140,11 @@ function updateCryptoTotal() {
 }
 function renderCryptoList() { updateCryptoTotal(); }
 
-// --- NAV DE SEÇÕES ---
-function renderSectionNav() {
-    const nav = document.getElementById('section-nav'); nav.innerHTML = '';
-    sections.forEach(sec => {
-        const btn = document.createElement('div'); btn.className = 'section-tab';
-        if(sec.id === currentSectionId) btn.classList.add('active');
-        btn.innerText = sec.name; btn.onclick = () => switchSection(sec.id); nav.appendChild(btn);
-    });
-    const addBtn = document.createElement('button');
-    addBtn.className = 'add-tab-btn';
-    addBtn.innerHTML = '<i class="fas fa-plus"></i>';
-    addBtn.onclick = () => { document.getElementById('new-section-modal').style.display='flex'; };
-    nav.appendChild(addBtn);
-}
-
-window.switchSection = (id) => {
-    currentSectionId = id; renderSectionNav();
-    document.getElementById('section-summary-bar').style.display = 'block';
-    document.getElementById('room-area-wrapper').style.display = 'block';
-    document.getElementById('current-section-name-display').innerText = sections.find(s=>s.id===id)?.name || '';
-    renderRoomsNav(); updateAllTotals();
-    const sec = sections.find(s=>s.id===id);
-    if(sec && sec.rooms.length > 0) switchRoom(sec.rooms[0].id);
-    else document.getElementById('main-container').innerHTML = '<div style="text-align:center; padding:30px; color:#666">Vazio. Clique no + para criar um cômodo.</div>';
-};
-
-window.saveNewSection = () => {
-    const name = document.getElementById('modal-section-name').value.trim();
-    if(!name) return;
-    const id = 'sec-'+Date.now(); 
-    sections.push({id, name, rooms:[]});
-    document.getElementById('modal-section-name').value = '';
-    document.getElementById('new-section-modal').style.display = 'none';
-    switchSection(id); saveData();
-};
-
-window.deleteCurrentSection = () => {
-    if(!currentSectionId || !confirm("Apagar toda a seção e itens?")) return;
-    sections = sections.filter(s=>s.id!==currentSectionId);
-    if(sections.length>0) switchSection(sections[0].id); else { currentSectionId=null; renderSectionNav(); document.getElementById('section-summary-bar').style.display='none'; document.getElementById('room-area-wrapper').style.display='none'; }
-    updateAllTotals(); saveData();
-};
-
-// --- NAV DE CÔMODOS ---
+// --- NAV DE CÔMODOS (AGORA É O PRINCIPAL) ---
 function renderRoomsNav() {
     const nav = document.getElementById('room-nav'); nav.innerHTML = '';
-    const sec = sections.find(s=>s.id===currentSectionId); if(!sec) return;
     
-    sec.rooms.forEach(room => {
-        const btn = document.createElement('button'); 
-        btn.className = 'room-btn'; 
-        btn.innerText = room.name;
-        if (room.bgColor) btn.style.backgroundColor = room.bgColor;
-        if (room.textColor) btn.style.color = room.textColor;
-        btn.onclick = () => switchRoom(room.id); 
-        btn.dataset.target = room.id;
-        btn.ondragover = (e) => { e.preventDefault(); btn.classList.add('drag-over-tab'); };
-        btn.ondragleave = (e) => { btn.classList.remove('drag-over-tab'); };
-        btn.ondrop = (e) => dropOnRoom(e, room.id);
-        nav.appendChild(btn);
-    });
-
+    // CRIAÇÃO DO BOTÃO +
     const addBtn = document.createElement('button');
     addBtn.className = 'add-tab-btn';
     addBtn.innerHTML = '<i class="fas fa-plus"></i>';
@@ -198,6 +156,25 @@ function renderRoomsNav() {
         document.getElementById('new-room-modal').style.display='flex'; 
     };
     nav.appendChild(addBtn);
+
+    // ITERA A LISTA GLOBAL DE ROOMS
+    rooms.forEach(room => {
+        const btn = document.createElement('button'); 
+        btn.className = 'room-btn'; 
+        btn.innerText = room.name;
+        if (room.id === currentRoomId) btn.classList.add('active');
+        if (room.bgColor) btn.style.backgroundColor = room.bgColor;
+        if (room.textColor) btn.style.color = room.textColor;
+        
+        btn.onclick = () => switchRoom(room.id); 
+        btn.dataset.target = room.id;
+        
+        btn.ondragover = (e) => { e.preventDefault(); btn.classList.add('drag-over-tab'); };
+        btn.ondragleave = (e) => { btn.classList.remove('drag-over-tab'); };
+        btn.ondrop = (e) => dropOnRoom(e, room.id);
+        
+        nav.appendChild(btn);
+    });
 }
 
 window.updateRoomPreview = () => {
@@ -211,38 +188,57 @@ window.updateRoomPreview = () => {
 };
 
 window.saveNewRoom = () => {
-    if(!currentSectionId) return; 
     const name = document.getElementById('modal-room-name').value.trim(); 
     const bgColor = document.getElementById('modal-room-bg').value;
     const textColor = document.getElementById('modal-room-text').value;
+    
     if(!name) return;
+    
     const id = name.toLowerCase().replace(/[^a-z0-9]/g,'')+'-'+Date.now();
-    sections.find(s=>s.id===currentSectionId).rooms.push({id, name, bgColor, textColor});
+    
+    // Adiciona na lista global de rooms
+    rooms.push({id, name, bgColor, textColor});
     initializeRoomData({id, name}); 
+    
     document.getElementById('new-room-modal').style.display='none';
-    renderRoomsNav(); switchRoom(id); updateAllTotals(); saveData();
+    renderRoomsNav(); 
+    switchRoom(id); 
+    updateAllTotals(); 
+    saveData();
 };
 
 window.deleteCurrentRoom = () => {
     if(!currentRoomId || !confirm("Tem certeza que deseja excluir este cômodo e todos os itens dele?")) return;
-    const sec = sections.find(s => s.id === currentSectionId);
-    sec.rooms = sec.rooms.filter(r => r.id !== currentRoomId);
+
+    // Remove da lista global
+    rooms = rooms.filter(r => r.id !== currentRoomId);
+    // Remove os dados
     delete houseData[currentRoomId];
+
     saveData();
-    if(sec.rooms.length > 0) { switchRoom(sec.rooms[0].id); renderRoomsNav(); } 
-    else { renderRoomsNav(); document.getElementById('main-container').innerHTML = '<div style="text-align:center; padding:30px; color:#666">Nenhum cômodo. Adicione um.</div>'; }
+
+    if(rooms.length > 0) {
+        switchRoom(rooms[0].id);
+    } else {
+        currentRoomId = null;
+        renderRoomsNav();
+        document.getElementById('main-container').innerHTML = '<div style="text-align:center; padding:30px; color:#666">Nenhum cômodo. Clique no + para criar um.</div>';
+    }
     updateAllTotals();
 };
 
 // --- RENDERIZAÇÃO DE SALA ---
 window.switchRoom = (roomId) => {
     currentRoomId = roomId;
-    document.querySelectorAll('.room-btn').forEach(b=>b.classList.remove('active'));
-    const btn = document.querySelector(`button[data-target="${roomId}"]`); if(btn) btn.classList.add('active');
+    renderRoomsNav(); // Re-renderiza para atualizar a classe .active
     
     const container = document.getElementById('main-container');
-    const roomName = btn ? btn.innerText : 'Cômodo';
+    const roomObj = rooms.find(r => r.id === roomId);
+    const roomName = roomObj ? roomObj.name : 'Cômodo';
     
+    // Garante que houseData[roomId] existe
+    if (!houseData[roomId]) initializeRoomData({id: roomId});
+
     const categories = Object.keys(houseData[roomId]).filter(k => Array.isArray(houseData[roomId][k]));
     
     let columnsHTML = '';
@@ -306,14 +302,19 @@ window.openNewListModal = () => {
     document.getElementById('new-list-modal').style.display = 'flex';
 };
 
+window.toggleListSelection = (val) => {
+    if (val === 'select') {
+        document.getElementById('manual-selection-wrapper').style.display = 'block';
+    } else {
+        document.getElementById('manual-selection-wrapper').style.display = 'none';
+    }
+};
+
 window.editListName = (r, oldName) => {
     const newName = prompt("Novo nome para a lista:", oldName);
     if(newName && newName !== oldName) {
         const newKey = newName.toLowerCase().trim().replace(/\s+/g, '-');
-        if(houseData[r][newKey]) {
-            alert("Já existe uma lista com esse nome (ou id)!");
-            return;
-        }
+        if(houseData[r][newKey]) { alert("Já existe uma lista com esse nome!"); return; }
         houseData[r][newKey] = houseData[r][oldName];
         delete houseData[r][oldName];
         saveData();
@@ -325,26 +326,13 @@ function setupRoomCheckboxes() {
     const container = document.getElementById('room-selection-container');
     container.innerHTML = '';
     
-    sections.forEach(sec => {
-        const title = document.createElement('div');
-        title.className = 'section-group-title';
-        title.innerText = sec.name;
-        container.appendChild(title);
-
-        if(sec.rooms && sec.rooms.length > 0) {
-            sec.rooms.forEach(room => {
-                const div = document.createElement('div');
-                div.className = 'room-checkbox-row';
-                const isCurrent = (room.id === currentRoomId);
-                div.innerHTML = `<input type="checkbox" id="chk-${room.id}" value="${room.id}" ${isCurrent ? 'checked' : ''}> <label for="chk-${room.id}">${room.name}</label>`;
-                container.appendChild(div);
-            });
-        } else {
-            const div = document.createElement('div');
-            div.style.color = '#555'; div.style.fontSize='0.8rem'; div.style.marginLeft='10px';
-            div.innerText = "(Sem cômodos)";
-            container.appendChild(div);
-        }
+    // Itera diretamente sobre a lista plana de rooms
+    rooms.forEach(room => {
+        const div = document.createElement('div');
+        div.className = 'room-checkbox-row';
+        const isCurrent = (room.id === currentRoomId);
+        div.innerHTML = `<label><input type="checkbox" id="chk-${room.id}" value="${room.id}" ${isCurrent ? 'checked' : ''}> ${room.name}</label>`;
+        container.appendChild(div);
     });
 }
 
@@ -361,37 +349,19 @@ window.toggleRoomDropdown = () => {
     }
 };
 
-function setupListTargetLogic() {
-    const radios = document.getElementsByName('add-list-target');
-    radios.forEach(radio => {
-        radio.addEventListener('change', (e) => {
-            if(e.target.value === 'select') {
-                document.getElementById('manual-selection-wrapper').style.display = 'block';
-            } else {
-                document.getElementById('manual-selection-wrapper').style.display = 'none';
-            }
-        });
-    });
-}
-
 window.saveNewList = () => {
     const rawName = document.getElementById('modal-list-name').value.trim();
     if (!rawName) return;
     
     const listId = rawName.toLowerCase().replace(/[^a-z0-9]/g, '-');
     const target = document.querySelector('input[name="add-list-target"]:checked').value;
-    const sec = sections.find(s=>s.id===currentSectionId);
 
     let roomsToUpdate = [];
 
     if (target === 'current') {
         roomsToUpdate.push(currentRoomId);
-    } else if (target === 'section') {
-        roomsToUpdate = sec.rooms.map(r => r.id);
     } else if (target === 'global') {
-        sections.forEach(s => {
-            s.rooms.forEach(r => roomsToUpdate.push(r.id));
-        });
+        rooms.forEach(r => roomsToUpdate.push(r.id));
     } else if (target === 'select') {
         const checkboxes = document.querySelectorAll('#room-selection-container input:checked');
         checkboxes.forEach(chk => roomsToUpdate.push(chk.value));
@@ -410,7 +380,7 @@ window.saveNewList = () => {
     saveData();
 };
 
-// ... [Outras funções auxiliares mantidas iguais] ...
+// ... [Outras funções auxiliares (changeImage, addItem, autoFill, removeItem, toggleStatus, dragDrop) iguais ao anterior] ...
 window.changeImage = (e, direction, r, c, itemId) => {
     e.stopPropagation(); 
     const item = houseData[r][c].find(i => i.id === itemId); if (!item) return;
@@ -424,8 +394,7 @@ window.changeImage = (e, direction, r, c, itemId) => {
 };
 
 function renderLists(r, c) {
-    const ul = document.getElementById(`list-${r}-${c}`); 
-    ul.innerHTML='';
+    const ul = document.getElementById(`list-${r}-${c}`); ul.innerHTML='';
     if(!houseData[r] || !houseData[r][c]) return;
 
     houseData[r][c].forEach(i => {
@@ -509,7 +478,7 @@ window.closeEditModal = () => { document.getElementById('edit-modal').style.disp
 window.saveEditItem = () => { const rOld = document.getElementById('edit-r-origin').value; const cOld = document.getElementById('edit-c-origin').value; const id = parseInt(document.getElementById('edit-id').value); const rNew = document.getElementById('edit-move-room').value; const cNew = document.getElementById('edit-move-cat').value; const itemIndex = houseData[rOld][cOld].findIndex(i => i.id === id); if (itemIndex === -1) return; const item = houseData[rOld][cOld][itemIndex]; houseData[rOld][cOld].splice(itemIndex, 1); item.name = document.getElementById('edit-name').value; item.price = parseFloat(document.getElementById('edit-price').value) || 0; item.link = document.getElementById('edit-link').value; item.desc = document.getElementById('edit-desc').value; item.imgs = tempEditImages.length > 0 ? tempEditImages : ['https://via.placeholder.com/150/000/fff?text=Sem+Foto']; if (!houseData[rNew]) initializeRoomData({id: rNew}); houseData[rNew][cNew].push(item); closeEditModal(); if (rOld !== rNew) switchRoom(rNew); else { renderLists(rOld, cOld); if(cOld !== cNew) renderLists(rOld, cNew); } updateAllTotals(); saveData(); };
 window.addToChecklist=(r,c)=>{const v=document.getElementById(`new-check-${r}-${c}`).value.trim();if(v){if(!checklistData[r][c]) checklistData[r][c] = []; checklistData[r][c].push(v);document.getElementById(`new-check-${r}-${c}`).value='';/*renderChecklist(r,c);*/saveData();}};
 
-// --- FUNÇÃO PRINCIPAL DE TOTAIS CORRIGIDA ---
+// --- TOTAIS (ATUALIZADO SEM SEÇÕES) ---
 function updateRoomTotals(r) { 
     let totalRoom = 0;
     if(houseData[r]) Object.keys(houseData[r]).forEach(cat => {
@@ -517,7 +486,6 @@ function updateRoomTotals(r) {
     });
     const statEl = document.getElementById(`room-stat-${r}`); if(statEl) statEl.innerText = `Total: ${formatCurrency(totalRoom)}`;
     
-    // Atualiza subtotais das colunas individuais
     if(houseData[r]) Object.keys(houseData[r]).forEach(cat => {
         let colTotal = 0; 
         if(Array.isArray(houseData[r][cat])) houseData[r][cat].forEach(i => colTotal += Number(i.price) || 0);
@@ -532,58 +500,36 @@ function updateAllTotals(cryptoVal = 0) {
         currentCryptoTotal += (inv.amount * p); 
     });
     
-    let globalTotals = {}; // Totais por categoria (Ex: { essencial: 1000, gamer: 500 })
-    let totalCost = 0;
-    let totalPaid = 0;
-    let totalPending = 0;
-    let countTotal = 0;
-    let countBought = 0;
-    
-    // Variáveis para a Seção Atual
-    let sectionTotal = 0;
-    let sectionPaid = 0;
+    let globalTotals = {};
+    let totalCost = 0, totalPaid = 0, totalPending = 0;
+    let countTotal = 0, countBought = 0;
 
-    // Loop Principal: Itera TODAS as seções para calcular tudo de uma vez
-    sections.forEach(sec => {
-        if(sec.rooms) {
-            sec.rooms.forEach(r => {
-                if (houseData[r.id]) {
-                    Object.keys(houseData[r.id]).forEach(cat => {
-                        if (Array.isArray(houseData[r.id][cat])) {
-                            // Inicializa categoria no objeto global se não existir
-                            if (!globalTotals[cat]) globalTotals[cat] = 0;
-                            
-                            houseData[r.id][cat].forEach(i => {
-                                const price = Number(i.price) || 0;
-                                
-                                // 1. Acumula nos Totais Globais
-                                globalTotals[cat] += price;
-                                totalCost += price;
-                                
-                                if(i.status === 'bought') {
-                                    totalPaid += price; 
-                                    countBought++;
-                                } else {
-                                    totalPending += price;
-                                }
-                                countTotal++;
-
-                                // 2. Acumula na Seção Atual (SE estivermos nela)
-                                if (currentSectionId && sec.id === currentSectionId) {
-                                    sectionTotal += price;
-                                    if(i.status === 'bought') sectionPaid += price;
-                                }
-                            });
+    // ITERA SOBRE A LISTA PLANA DE CÔMODOS
+    rooms.forEach(r => {
+        if (houseData[r.id]) {
+            Object.keys(houseData[r.id]).forEach(cat => {
+                if (Array.isArray(houseData[r.id][cat])) {
+                    if (!globalTotals[cat]) globalTotals[cat] = 0;
+                    
+                    houseData[r.id][cat].forEach(i => {
+                        const price = Number(i.price) || 0;
+                        globalTotals[cat] += price;
+                        totalCost += price;
+                        
+                        if(i.status === 'bought') {
+                            totalPaid += price; 
+                            countBought++;
+                        } else {
+                            totalPending += price;
                         }
+                        countTotal++;
                     });
-                    // Atualiza o total individual deste cômodo enquanto passamos por ele
-                    updateRoomTotals(r.id);
                 }
             });
+            updateRoomTotals(r.id);
         }
     });
 
-    // Atualiza Card de "Custos Projeto" (Topo)
     const container = document.getElementById('dynamic-totals-container');
     container.innerHTML = '';
     Object.keys(globalTotals).forEach(cat => {
@@ -595,38 +541,15 @@ function updateAllTotals(cryptoVal = 0) {
 
     document.getElementById('gl-total').innerText = formatCurrency(totalCost);
 
-    // Atualiza Barras de Progresso
-    const fPct = totalCost>0 ? (totalPaid/totalCost)*100 : 0; 
-    document.getElementById('bar-finance').style.width=`${fPct}%`; 
-    document.getElementById('prog-text-finance').innerText=`${fPct.toFixed(1)}%`; 
-    document.getElementById('val-paid').innerText=`Pago: ${formatCurrency(totalPaid)}`; 
-    document.getElementById('val-pending').innerText=`Falta: ${formatCurrency(totalPending)}`;
-
-    const qPct = countTotal>0 ? (countBought/countTotal)*100 : 0; 
-    document.getElementById('bar-qty').style.width=`${qPct}%`; 
-    document.getElementById('prog-text-qty').innerText=`${qPct.toFixed(1)}%`; 
-    document.getElementById('qty-paid').innerText=`${countBought} itens`; 
-    document.getElementById('qty-pending').innerText=`${countTotal-countBought} itens`;
-
-    const totalMoney = wallet.balance + currentCryptoTotal; 
-    const cPct = totalCost>0 ? (totalMoney/totalCost)*100 : 0; 
-    const visCPct = cPct>100?100:cPct; 
-    document.getElementById('bar-cover').style.width=`${visCPct}%`; 
-    document.getElementById('prog-text-cover').innerText=`${cPct.toFixed(1)}%`;
+    const fPct = totalCost>0 ? (totalPaid/totalCost)*100 : 0; document.getElementById('bar-finance').style.width=`${fPct}%`; document.getElementById('prog-text-finance').innerText=`${fPct.toFixed(1)}%`; document.getElementById('val-paid').innerText=`Pago: ${formatCurrency(totalPaid)}`; document.getElementById('val-pending').innerText=`Falta: ${formatCurrency(totalPending)}`;
+    const qPct = countTotal>0 ? (countBought/countTotal)*100 : 0; document.getElementById('bar-qty').style.width=`${qPct}%`; document.getElementById('prog-text-qty').innerText=`${qPct.toFixed(1)}%`; document.getElementById('qty-paid').innerText=`${countBought} itens`; document.getElementById('qty-pending').innerText=`${countTotal-countBought} itens`;
+    const totalMoney = wallet.balance + currentCryptoTotal; const cPct = totalCost>0 ? (totalMoney/totalCost)*100 : 0; const visCPct = cPct>100?100:cPct; document.getElementById('bar-cover').style.width=`${visCPct}%`; document.getElementById('prog-text-cover').innerText=`${cPct.toFixed(1)}%`;
     
-    // Cobertura Essencial
     const essCost = globalTotals['essencial'] || 0;
     const essPct = essCost>0 ? (totalMoney/essCost)*100 : (totalMoney > 0 ? 100 : 0);
     const visEssPct = essPct>100?100:essPct;
     document.getElementById('bar-ess-cover').style.width = `${visEssPct}%`;
     document.getElementById('prog-text-ess-cover').innerText = `${essPct.toFixed(1)}%`;
-
-    // Atualiza Barra da Seção (Agora garantido pois sectionTotal foi calculado no loop principal)
-    if(currentSectionId) { 
-        document.getElementById('sec-combined-total').innerText = formatCurrency(sectionTotal); 
-        document.getElementById('sec-combined-bought').innerText = `Pago: ${formatCurrency(sectionPaid)}`; 
-        document.getElementById('sec-combined-pending').innerText = `Falta: ${formatCurrency(sectionTotal - sectionPaid)}`; 
-    }
 }
 
 function formatCurrency(val) { return val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
