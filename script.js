@@ -22,7 +22,6 @@ window.loadUserData = async (uid) => {
         if (docSnap.exists()) {
             const data = docSnap.data();
             
-            // Migração de estrutura antiga
             if (data.sections && (!data.rooms || data.rooms.length === 0)) {
                 console.log("Migrando estrutura...");
                 rooms = [];
@@ -53,7 +52,7 @@ window.loadUserData = async (uid) => {
     } catch (e) { console.error("Erro load:", e); }
 };
 
-// --- SALVAMENTO COM FEEDBACK E SEGURANÇA ---
+// --- SALVAMENTO ---
 const saveData = async (isManual = false) => {
     if (!window.currentUser) {
         if(isManual) alert("Você precisa estar logado para salvar!");
@@ -64,15 +63,13 @@ const saveData = async (isManual = false) => {
     
     try { 
         await window.setDoc(window.doc(window.db, "users", uid), dataToSave, { merge: true }); 
-        // Feedback visual para salvamento automático
         if(!isManual) showToast("Salvo automaticamente.");
     } catch (e) { 
         console.error("Erro save:", e); 
-        alert("ERRO AO SALVAR! Verifique sua conexão. Seus dados não foram sincronizados.");
+        alert("ERRO AO SALVAR! Verifique sua conexão.");
     }
 };
 
-// --- SALVAR E SAIR MANUAL (BOTÃO) ---
 window.manualSaveAndExit = async () => {
     if(!window.currentUser) { alert("Você não está logado."); return; }
     
@@ -80,20 +77,18 @@ window.manualSaveAndExit = async () => {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
     btn.disabled = true;
 
-    await saveData(true); // Força o salvamento e espera
+    await saveData(true);
 
     btn.innerHTML = '<i class="fas fa-check"></i> Salvo!';
     setTimeout(() => {
-        alert("Todos os dados foram salvos com sucesso na nuvem. Saindo com segurança.");
+        alert("Dados salvos. Saindo...");
         window.logout();
     }, 500);
 };
 
 function showToast(msg) {
-    // Evita acumular toasts
     const existing = document.querySelector('.toast-notification');
     if(existing) existing.remove();
-
     const div = document.createElement('div');
     div.className = 'toast-notification';
     div.innerHTML = `<i class="fas fa-check-circle" style="color:#4CAF50;"></i> ${msg}`;
@@ -109,12 +104,35 @@ function initializeRoomData(room) {
     }
 }
 
-// --- LOG UNIFICADO (HISTÓRICO) ---
+// --- LOG UNIFICADO E DELETE ---
 function logTransaction(type, desc, val) {
-    wallet.history.unshift({ type, desc, val, date: new Date().toLocaleDateString() });
-    if(wallet.history.length > 20) wallet.history.pop();
+    const id = Date.now() + Math.random(); // ID Único para poder deletar depois
+    wallet.history.unshift({ id, type, desc, val, date: new Date().toLocaleDateString() });
+    if(wallet.history.length > 50) wallet.history.pop();
     updateWalletUI();
 }
+
+window.deleteTransaction = (id) => {
+    const index = wallet.history.findIndex(x => x.id === id);
+    if(index === -1) return;
+    
+    const item = wallet.history[index];
+    
+    // LÓGICA DE REVERSÃO
+    // Se era Entrada, tira o valor. Se era Saída, devolve o valor.
+    // Cripto apenas remove o log (pois o saldo é gerido no outro array)
+    if(item.type === 'add') {
+        wallet.balance -= item.val;
+    } else if (item.type === 'remove') {
+        wallet.balance += item.val;
+    }
+    
+    wallet.history.splice(index, 1);
+    updateWalletUI();
+    updateAllTotals();
+    saveData();
+    showToast("Histórico corrigido.");
+};
 
 // --- CARTEIRA ---
 window.handleTransaction = (type) => {
@@ -122,12 +140,18 @@ window.handleTransaction = (type) => {
     const valInput = document.getElementById('trans-val');
     const desc = descInput.value.trim() || (type === 'add' ? 'Depósito' : 'Retirada');
     const val = parseFloat(valInput.value);
+    
     if (isNaN(val) || val <= 0) { alert("Valor inválido."); return; }
     
     wallet.balance = parseFloat(wallet.balance) || 0;
     
-    if (type === 'add') { wallet.balance += val; logTransaction('add', desc, val); } 
-    else { wallet.balance -= val; logTransaction('remove', desc, val); }
+    if (type === 'add') { 
+        wallet.balance += val; 
+        logTransaction('add', desc, val);
+    } else { 
+        wallet.balance -= val; 
+        logTransaction('remove', desc, val);
+    }
     
     descInput.value = ''; valInput.value = '';
     saveData(); updateAllTotals();
@@ -138,14 +162,23 @@ function updateWalletUI() {
     document.getElementById('wallet-balance').innerText = formatCurrency(bal);
     const list = document.getElementById('wallet-history');
     list.innerHTML = '';
-    wallet.history.slice(0, 8).forEach(item => {
+    
+    wallet.history.slice(0, 10).forEach(item => {
         const li = document.createElement('li');
         let colorClass = 'hist-plus'; let signal = '+';
         if(item.type === 'remove') { colorClass = 'hist-minus'; signal = '-'; }
         if(item.type.includes('crypto')) { colorClass = 'hist-crypto'; signal = ''; }
         
         const valText = item.type.includes('crypto') ? '' : `${signal} ${formatCurrency(item.val)}`;
-        li.innerHTML = `<span>${item.desc}</span> <span class="${colorClass}" style="font-weight:bold;">${valText}</span>`;
+        
+        // Adicionamos o botão de deletar (lixeira)
+        li.innerHTML = `
+            <div style="flex-grow:1;">
+                <span style="font-size:0.85rem; display:block;">${item.desc}</span> 
+                <span class="${colorClass}" style="font-weight:bold; font-size:0.8rem;">${valText}</span>
+            </div>
+            <button class="btn-del-hist" onclick="deleteTransaction(${item.id})"><i class="fas fa-trash"></i></button>
+        `;
         list.appendChild(li);
     });
 }
@@ -310,7 +343,7 @@ function renderColumnHTML(r, c, t) {
 }
 
 window.deleteList = (r, c) => {
-    if(confirm(`Excluir a lista "${capitalize(c)}"?`)) { delete houseData[r][c]; saveData(); switchRoom(r); updateAllTotals(); }
+    if(confirm(`Tem certeza que deseja excluir a lista "${capitalize(c)}"?`)) { delete houseData[r][c]; saveData(); switchRoom(r); updateAllTotals(); }
 };
 
 window.openNewListModal = () => { document.getElementById('modal-list-name').value = ''; document.getElementById('target-current').checked = true; document.getElementById('manual-selection-wrapper').style.display = 'none'; document.getElementById('room-selection-container').style.display = 'none'; setupRoomCheckboxes(); document.getElementById('new-list-modal').style.display = 'flex'; };
@@ -333,6 +366,7 @@ window.leaveDrop = (e) => { const list = e.target.closest('ul'); if(list) list.c
 window.dropItem = (e, targetR, targetC) => { e.preventDefault(); const list = e.target.closest('ul'); if(list) list.classList.remove('drag-over'); try { const data = JSON.parse(e.dataTransfer.getData("text/plain")); const { r: originR, c: originC, id: itemId } = data; if (originR === targetR && originC === targetC) return; const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId); if (itemIndex === -1) return; const item = houseData[originR][originC][itemIndex]; houseData[originR][originC].splice(itemIndex, 1); houseData[targetR][targetC].push(item); renderLists(originR, originC); renderLists(targetR, targetC); updateAllTotals(); saveData(); } catch (err) { console.error("Drop error:", err); } };
 window.dropOnRoom = (e, targetRoomId) => { e.preventDefault(); const btn = document.querySelector(`button[data-target="${targetRoomId}"]`); if(btn) btn.classList.remove('drag-over-tab'); try { const data = JSON.parse(e.dataTransfer.getData("text/plain")); const { r: originR, c: originC, id: itemId } = data; if (originR === targetRoomId) return; const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId); if (itemIndex === -1) return; const item = houseData[originR][originC][itemIndex]; houseData[originR][originC].splice(itemIndex, 1); const targetCat = houseData[targetRoomId][originC] ? originC : Object.keys(houseData[targetRoomId])[0]; houseData[targetRoomId][targetCat].push(item); renderLists(originR, originC); showToast(`Item movido.`); updateAllTotals(); saveData(); } catch (err) { console.error("Room Drop error:", err); } };
 function setupKeyboardShortcuts() { document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'c') { if (hoveredItemData) { appClipboard = JSON.parse(JSON.stringify(hoveredItemData)); showToast(`Copiado: ${appClipboard.item.name}`); } } if ((e.ctrlKey || e.metaKey) && e.key === 'v') { if (appClipboard && currentRoomId) { const newItem = { ...appClipboard.item, id: Date.now(), status: 'pending', name: appClipboard.item.name + ' (Cópia)' }; const targetCat = houseData[currentRoomId][appClipboard.c] ? appClipboard.c : Object.keys(houseData[currentRoomId])[0]; houseData[currentRoomId][targetCat].push(newItem); renderLists(currentRoomId, targetCat); updateAllTotals(); saveData(); showToast(`Colado.`); } } }); }
+function showToast(msg) { const div = document.createElement('div'); div.className = 'toast-notification'; div.innerHTML = `<i class="fas fa-check-circle" style="color:#4CAF50;"></i> ${msg}`; document.body.appendChild(div); setTimeout(() => { div.remove(); }, 3000); }
 window.openEditModal = (r, c, id) => { const item = houseData[r][c].find(i => i.id === id); if (!item) return; tempEditImages = Array.isArray(item.imgs) && item.imgs.length > 0 ? [...item.imgs] : (item.img ? [item.img] : []); document.getElementById('edit-r-origin').value = r; document.getElementById('edit-c-origin').value = c; document.getElementById('edit-id').value = id; document.getElementById('edit-name').value = item.name; document.getElementById('edit-price').value = item.price; document.getElementById('edit-link').value = item.link || ''; document.getElementById('edit-desc').value = item.desc || ''; renderEditGallery(); const roomSelect = document.getElementById('edit-move-room'); roomSelect.innerHTML = ''; rooms.forEach(room => { const opt = document.createElement('option'); opt.value = room.id; opt.text = room.name; if(room.id === r) opt.selected = true; roomSelect.appendChild(opt); }); const catSelect = document.getElementById('edit-move-cat'); catSelect.innerHTML = ''; Object.keys(houseData[r]).forEach(cat => { const opt = document.createElement('option'); opt.value = cat; opt.text = capitalize(cat); if(cat === c) opt.selected = true; catSelect.appendChild(opt); }); roomSelect.onchange = (e) => { const selectedRoom = e.target.value; catSelect.innerHTML = ''; Object.keys(houseData[selectedRoom]).forEach(cat => { const opt = document.createElement('option'); opt.value = cat; opt.text = capitalize(cat); catSelect.appendChild(opt); }); }; document.getElementById('edit-modal').style.display = 'flex'; };
 window.renderEditGallery = () => { const container = document.getElementById('edit-gallery-container'); container.innerHTML = ''; tempEditImages.forEach((img, idx) => { const wrapper = document.createElement('div'); wrapper.className = 'edit-thumb-wrapper'; wrapper.innerHTML = `<img src="${img}" class="edit-thumb"><button class="edit-remove-img" onclick="removeEditImage(${idx})">&times;</button>`; container.appendChild(wrapper); }); };
 window.removeEditImage = (idx) => { tempEditImages.splice(idx, 1); renderEditGallery(); };
@@ -340,7 +374,7 @@ function setupEditModalImageInput() { const input = document.getElementById('edi
 window.closeEditModal = () => { document.getElementById('edit-modal').style.display = 'none'; };
 window.saveEditItem = () => { const rOld = document.getElementById('edit-r-origin').value; const cOld = document.getElementById('edit-c-origin').value; const id = parseInt(document.getElementById('edit-id').value); const rNew = document.getElementById('edit-move-room').value; const cNew = document.getElementById('edit-move-cat').value; const itemIndex = houseData[rOld][cOld].findIndex(i => i.id === id); if (itemIndex === -1) return; const item = houseData[rOld][cOld][itemIndex]; houseData[rOld][cOld].splice(itemIndex, 1); item.name = document.getElementById('edit-name').value; item.price = parseFloat(document.getElementById('edit-price').value) || 0; item.link = document.getElementById('edit-link').value; item.desc = document.getElementById('edit-desc').value; item.imgs = tempEditImages.length > 0 ? tempEditImages : ['https://via.placeholder.com/150/000/fff?text=Sem+Foto']; if (!houseData[rNew]) initializeRoomData({id: rNew}); houseData[rNew][cNew].push(item); closeEditModal(); if (rOld !== rNew) switchRoom(rNew); else { renderLists(rOld, cOld); if(cOld !== cNew) renderLists(rOld, cNew); } updateAllTotals(); saveData(); };
 
-// --- CÁLCULO E BARRAS (ATUALIZADO) ---
+// --- FUNÇÃO PRINCIPAL DE CÁLCULO E BARRAS ---
 function updateAllTotals(cryptoTotal = 0) {
     let currentCryptoVal = cryptoTotal; 
     if(cryptoTotal === 0 && investments.length > 0 && Object.keys(currentCryptoPrices).length > 0) {
