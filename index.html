@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Casa Nova</title>
+    <title>Dashboard Estoque</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
@@ -12,8 +12,8 @@
 
 <div id="auth-overlay" class="auth-overlay">
     <div class="auth-box">
-        <h2><i class="fas fa-home"></i> Casa Nova</h2>
-        <p id="auth-msg">Faça login para continuar</p>
+        <h2><i class="fas fa-box-open"></i> App Estoque</h2>
+        <p id="auth-msg">Faça login para acessar</p>
         <div class="auth-inputs">
             <input type="email" id="auth-email" placeholder="E-mail" class="auth-input">
             <input type="password" id="auth-pass" placeholder="Senha" class="auth-input">
@@ -27,7 +27,7 @@
 </div>
 
 <header>
-    <h1><i class="fas fa-home"></i> Gestão de Casa</h1>
+    <h1><i class="fas fa-boxes"></i> Controle Financeiro</h1>
     <div id="user-info" style="display:none; align-items:center; gap:10px;">
         <span id="user-name" style="color:var(--accent-color); font-weight:bold;">Usuário</span>
         <button onclick="logout()" class="btn-logout"><i class="fas fa-sign-out-alt"></i> Sair</button>
@@ -37,68 +37,86 @@
 <div id="app-content" style="display:none;">
     <div class="dashboard-area">
         <div class="dashboard-card wallet-card">
-            <div class="card-title"><i class="fas fa-wallet"></i> Carteira (Dinheiro)</div>
+            <div class="card-title"><i class="fas fa-wallet"></i> Dinheiro (Real)</div>
             <div class="wallet-display">
                 <span class="wallet-label">Disponível</span>
                 <span class="wallet-value" id="wallet-balance">R$ 0,00</span>
             </div>
             <div class="wallet-controls">
-                <input type="text" id="trans-desc" placeholder="Descrição">
+                <input type="text" id="trans-desc" placeholder="Descrição (ex: Salário)">
                 <input type="number" id="trans-val" placeholder="Valor (R$)" step="0.01">
                 <div class="wallet-buttons">
-                    <button class="btn-deposit" onclick="handleTransaction('add')"><i class="fas fa-arrow-up"></i></button>
-                    <button class="btn-withdraw" onclick="handleTransaction('remove')"><i class="fas fa-arrow-down"></i></button>
+                    <button class="btn-deposit" onclick="handleTransaction('add')"><i class="fas fa-arrow-up"></i> Entrou</button>
+                    <button class="btn-withdraw" onclick="handleTransaction('remove')"><i class="fas fa-arrow-down"></i> Saiu</button>
                 </div>
             </div>
+            <div style="margin-top:10px; font-size:0.8rem; color:#888;">Histórico Recente:</div>
             <ul id="wallet-history" class="wallet-history"></ul>
         </div>
 
         <div class="dashboard-card crypto-card">
             <div class="card-title">
-                <i class="fab fa-bitcoin"></i> Criptoativos
+                <i class="fab fa-bitcoin"></i> Criptomoedas
                 <button onclick="refreshCryptoPrices()" class="refresh-btn" title="Atualizar Cotação"><i class="fas fa-sync-alt"></i></button>
             </div>
             <div class="wallet-display" style="background:#222; border:1px solid #f3ba2f;">
-                <span class="wallet-label">Total Convertido</span>
+                <span class="wallet-label">Saldo em Cripto (Aprox.)</span>
                 <span class="wallet-value" id="crypto-total-brl" style="color:#f3ba2f;">R$ 0,00</span>
             </div>
             <div class="wallet-controls">
-                <select id="crypto-select" class="auth-input" style="margin-bottom:5px;">
-                    <option value="bitcoin">Bitcoin (BTC)</option>
-                    <option value="ethereum">Ethereum (ETH)</option>
-                    <option value="solana">Solana (SOL)</option>
-                    <option value="tether">Tether (USDT)</option>
-                    <option value="ripple">XRP</option>
-                </select>
-                <input type="number" id="crypto-amount" placeholder="Quantidade" step="0.000001">
-                <button class="btn-deposit" onclick="addCrypto()" style="width:100%; margin-top:5px; background:#f3ba2f; color:black;">Adicionar Ativo</button>
+                <label style="font-size:0.7rem; color:#ccc;">Adicionar Moeda:</label>
+                <div style="display:flex; gap:5px;">
+                    <select id="crypto-select" class="auth-input" style="flex:1;">
+                        <option value="bitcoin">Bitcoin (BTC)</option>
+                        <option value="ethereum">Ethereum (ETH)</option>
+                        <option value="solana">Solana (SOL)</option>
+                        <option value="tether">USDT (Dólar)</option>
+                    </select>
+                    <input type="number" id="crypto-amount" placeholder="Qtd (ex: 0.001)" step="0.000001" style="flex:1;">
+                </div>
+                <button class="btn-deposit" onclick="addCrypto()" style="width:100%; margin-top:5px; background:#f3ba2f; color:black; font-weight:bold;">
+                    <i class="fas fa-plus-circle"></i> Adicionar Cripto
+                </button>
             </div>
-            <ul id="crypto-list" class="wallet-history"></ul>
+            <ul id="crypto-list" class="wallet-history" style="margin-top:10px;"></ul>
         </div>
 
         <div class="dashboard-card progress-card">
-            <div class="card-title"><i class="fas fa-chart-pie"></i> Progresso</div>
+            <div class="card-title"><i class="fas fa-layer-group"></i> Níveis de Cobertura</div>
             
             <div class="progress-group">
-                <div class="prog-label"><span style="color:var(--accent-color)">Cobertura Essencial</span><span id="prog-text-ess-cover">0%</span></div>
-                <div class="progress-track"><div class="progress-fill fill-ess-cover" id="bar-ess-cover" style="width: 0%"></div></div>
-                <div class="prog-details"><small style="color:#888;">Dinheiro cobre itens essenciais?</small></div>
+                <div class="prog-label">Nível Essencial (Dinheiro Total vs Essencial)</div>
+                <div class="progress-track"><div id="bar-level-1" class="progress-fill fill-1" style="width: 0%"></div></div>
+                <div class="prog-below" id="text-level-1">0%</div>
             </div>
 
             <div class="progress-group">
-                <div class="prog-label"><span>Financeiro Geral (Pago)</span><span id="prog-text-finance">0%</span></div>
-                <div class="progress-track"><div class="progress-fill fill-finance" id="bar-finance" style="width: 0%"></div></div>
-                <div class="prog-details"><span class="c-green" id="val-paid">Pago: R$ 0</span><span class="c-red" id="val-pending">Falta: R$ 0</span></div>
+                <div class="prog-label">Nível Básico (Dinheiro Total vs Comum)</div>
+                <div class="progress-track"><div id="bar-level-2" class="progress-fill fill-2" style="width: 0%"></div></div>
+                <div class="prog-below" id="text-level-2">0%</div>
             </div>
-            
+
             <div class="progress-group">
-                <div class="prog-label"><span>Poder Total (Cobre tudo?)</span><span id="prog-text-cover">0%</span></div>
-                <div class="progress-track"><div class="progress-fill fill-cover" id="bar-cover" style="width: 0%"></div></div>
+                <div class="prog-label">Nível Sonho (Dinheiro Total vs Desejado)</div>
+                <div class="progress-track"><div id="bar-level-3" class="progress-fill fill-3" style="width: 0%"></div></div>
+                <div class="prog-below" id="text-level-3">0%</div>
+            </div>
+
+            <div class="progress-group">
+                <div class="prog-label">Nível Estável (Cobre o Projeto Todo?)</div>
+                <div class="progress-track"><div id="bar-level-4" class="progress-fill fill-4" style="width: 0%"></div></div>
+                <div class="prog-below" id="text-level-4">0%</div>
+            </div>
+
+            <div class="progress-group">
+                <div class="prog-label">Conclusão (Itens Pagos vs Pendentes)</div>
+                <div class="progress-track"><div id="bar-level-5" class="progress-fill fill-5" style="width: 0%"></div></div>
+                <div class="prog-below" id="text-level-5">0%</div>
             </div>
         </div>
 
         <div class="dashboard-card totals-card">
-            <div class="card-title"><i class="fas fa-calculator"></i> Custos Projeto</div>
+            <div class="card-title"><i class="fas fa-calculator"></i> Custos do Projeto</div>
             <div id="dynamic-totals-container"></div>
             <div class="total-row main-total"><span>TOTAL GERAL:</span> <strong id="gl-total" style="color:var(--accent-color)">R$ 0,00</strong></div>
         </div>
@@ -116,113 +134,63 @@
 <div id="new-room-modal" class="auth-overlay" style="display:none;">
     <div class="auth-box">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-            <h2 style="margin:0;">Novo Cômodo</h2>
-            <span onclick="document.getElementById('new-room-modal').style.display='none'" style="cursor:pointer; font-size:1.5rem;">&times;</span>
+            <h2 style="margin:0;">Novo Cômodo</h2><span onclick="document.getElementById('new-room-modal').style.display='none'" style="cursor:pointer; font-size:1.5rem;">&times;</span>
         </div>
-        <input type="text" id="modal-room-name" class="auth-input" placeholder="Nome (ex: Quarto Gamer)" oninput="updateRoomPreview()">
+        <input type="text" id="modal-room-name" class="auth-input" placeholder="Nome" oninput="updateRoomPreview()">
         <div class="color-picker-group">
-            <div style="flex:1;">
-                <label style="font-size:0.8rem; color:#888;">Cor do Fundo</label>
-                <input type="color" id="modal-room-bg" value="#19191a" style="width:100%; height:40px; border:none; border-radius:4px;" oninput="updateRoomPreview()">
-            </div>
-            <div style="flex:1;">
-                <label style="font-size:0.8rem; color:#888;">Cor da Letra</label>
-                <input type="color" id="modal-room-text" value="#888888" style="width:100%; height:40px; border:none; border-radius:4px;" oninput="updateRoomPreview()">
-            </div>
+            <div style="flex:1;"><label style="font-size:0.8rem; color:#888;">Fundo</label><input type="color" id="modal-room-bg" value="#19191a" style="width:100%; height:40px; border:none; border-radius:4px;" oninput="updateRoomPreview()"></div>
+            <div style="flex:1;"><label style="font-size:0.8rem; color:#888;">Letra</label><input type="color" id="modal-room-text" value="#888888" style="width:100%; height:40px; border:none; border-radius:4px;" oninput="updateRoomPreview()"></div>
         </div>
-        <div style="margin: 20px 0; text-align:center;">
-            <span style="font-size:0.8rem; color:#aaa; display:block; margin-bottom:5px;">Prévia:</span>
-            <div id="room-preview-box" class="room-preview">Nome do Cômodo</div>
-        </div>
-        <button onclick="saveNewRoom()" class="btn-auth-action">Criar Cômodo</button>
+        <div style="margin: 20px 0; text-align:center;"><span style="font-size:0.8rem; color:#aaa; display:block; margin-bottom:5px;">Prévia:</span><div id="room-preview-box" class="room-preview">Nome</div></div>
+        <button onclick="saveNewRoom()" class="btn-auth-action">Criar</button>
     </div>
 </div>
 
 <div id="new-list-modal" class="auth-overlay" style="display:none;">
     <div class="auth-box" style="max-width: 500px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
-            <h2 style="margin:0;">Nova Lista de Itens</h2>
-            <span onclick="document.getElementById('new-list-modal').style.display='none'" style="cursor:pointer; font-size:1.5rem;">&times;</span>
+            <h2 style="margin:0;">Nova Lista</h2><span onclick="document.getElementById('new-list-modal').style.display='none'" style="cursor:pointer; font-size:1.5rem;">&times;</span>
         </div>
-        <input type="text" id="modal-list-name" class="auth-input" placeholder="Nome da Lista (ex: Gamer, Decoração)">
-        
+        <input type="text" id="modal-list-name" class="auth-input" placeholder="Nome (ex: Essencial)">
         <div style="text-align:left; margin: 15px 0; background:#222; padding:15px; border-radius:8px;">
-            <label style="display:block; margin-bottom:10px; color:#fff; font-weight:bold;">Onde adicionar esta lista?</label>
-            
-            <div style="margin-bottom:8px;">
-                <input type="radio" name="add-list-target" value="current" id="target-current" checked onclick="toggleListSelection(this.value)">
-                <label for="target-current" style="color:#ddd;">1. Adicionar apenas neste cômodo</label>
-            </div>
-            
-            <div style="margin-bottom:8px;">
-                <input type="radio" name="add-list-target" value="global" id="target-global" onclick="toggleListSelection(this.value)">
-                <label for="target-global" style="color:#ddd;">2. Adicionar em TODOS os cômodos</label>
-            </div>
-
-             <div style="margin-bottom:8px;">
-                <input type="radio" name="add-list-target" value="select" id="target-select" onclick="toggleListSelection(this.value)">
-                <label for="target-select" style="color:#ddd; font-weight:bold; color:var(--accent-color);">3. Selecionar os cômodos...</label>
-            </div>
-            
+            <label style="display:block; margin-bottom:10px; color:#fff; font-weight:bold;">Onde adicionar?</label>
+            <div style="margin-bottom:8px;"><input type="radio" name="add-list-target" value="current" id="target-current" checked onclick="toggleListSelection(this.value)"><label for="target-current" style="color:#ddd;"> Apenas neste cômodo</label></div>
+            <div style="margin-bottom:8px;"><input type="radio" name="add-list-target" value="global" id="target-global" onclick="toggleListSelection(this.value)"><label for="target-global" style="color:#ddd;"> Em TODOS os cômodos</label></div>
+             <div style="margin-bottom:8px;"><input type="radio" name="add-list-target" value="select" id="target-select" onclick="toggleListSelection(this.value)"><label for="target-select" style="color:var(--accent-color); font-weight:bold;"> Selecionar...</label></div>
             <div id="manual-selection-wrapper" style="display:none; margin-top:10px; border-top:1px solid #444; padding-top:10px;">
-                <div class="room-selector-header" onclick="toggleRoomDropdown()">
-                    <span><i class="fas fa-list"></i> Escolher Cômodos</span>
-                    <i class="fas fa-chevron-down" id="selector-arrow" style="transition:0.3s;"></i>
-                </div>
-                
-                <div id="room-selection-container" style="display:none; margin-top:10px; background: #111; border-radius:5px; padding:10px; max-height:200px; overflow-y:auto; border:1px solid #444;">
-                    </div>
+                <div class="room-selector-header" onclick="toggleRoomDropdown()"><span>Escolher</span><i class="fas fa-chevron-down" id="selector-arrow"></i></div>
+                <div id="room-selection-container" style="display:none; margin-top:10px; background:#111; padding:10px; max-height:200px; overflow-y:auto; border:1px solid #444;"></div>
             </div>
         </div>
-
-        <button onclick="saveNewList()" class="btn-auth-action">OK (Criar Lista)</button>
+        <button onclick="saveNewList()" class="btn-auth-action">Criar Lista</button>
     </div>
 </div>
 
 <div id="edit-modal" class="auth-overlay" style="display:none; align-items:flex-start; padding-top:50px; overflow-y:auto;">
     <div class="auth-box" style="text-align: left; max-width: 500px; width:95%; margin-bottom:50px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #333; padding-bottom:10px;">
-            <h2 style="margin:0; font-size:1.2rem;">✏️ Editar Item</h2>
-            <span onclick="closeEditModal()" style="cursor:pointer; font-size:1.5rem; color:#fff;">&times;</span>
+            <h2 style="margin:0; font-size:1.2rem;">Editar Item</h2><span onclick="closeEditModal()" style="cursor:pointer; font-size:1.5rem; color:#fff;">&times;</span>
         </div>
-        <input type="hidden" id="edit-r-origin">
-        <input type="hidden" id="edit-c-origin">
-        <input type="hidden" id="edit-id">
-        <label style="color:var(--accent-color); font-size:0.8rem; font-weight:bold;">Nome do Item</label>
-        <input type="text" id="edit-name" class="auth-input" style="margin-bottom:15px;">
+        <input type="hidden" id="edit-r-origin"><input type="hidden" id="edit-c-origin"><input type="hidden" id="edit-id">
+        <label style="color:var(--accent-color); font-size:0.8rem;">Nome</label><input type="text" id="edit-name" class="auth-input" style="margin-bottom:15px;">
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-            <div>
-                <label style="color:#888; font-size:0.8rem;">Preço (R$)</label>
-                <input type="number" id="edit-price" class="auth-input" style="margin-bottom:15px;" step="0.01">
-            </div>
-            <div>
-                <label style="color:#888; font-size:0.8rem;">Link / URL</label>
-                <input type="text" id="edit-link" class="auth-input" style="margin-bottom:15px;">
-            </div>
+            <div><label style="color:#888; font-size:0.8rem;">Preço (R$)</label><input type="number" id="edit-price" class="auth-input" style="margin-bottom:15px;" step="0.01"></div>
+            <div><label style="color:#888; font-size:0.8rem;">Link</label><input type="text" id="edit-link" class="auth-input" style="margin-bottom:15px;"></div>
         </div>
-        <label style="color:#888; font-size:0.8rem;">Descrição</label>
-        <textarea id="edit-desc" class="auth-input" style="margin-bottom:15px; height:80px; resize:none;"></textarea>
+        <label style="color:#888; font-size:0.8rem;">Descrição</label><textarea id="edit-desc" class="auth-input" style="margin-bottom:15px; height:80px; resize:none;"></textarea>
         <div style="background:#222; padding:15px; border-radius:8px; border:1px solid #333; margin-bottom:15px;">
-            <label style="color:#fff; font-size:0.8rem; display:block; margin-bottom:10px;">📸 Galeria:</label>
+            <label style="color:#fff; font-size:0.8rem; display:block; margin-bottom:10px;">Galeria:</label>
             <div id="edit-gallery-container" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;"></div>
-            <input type="file" id="edit-add-img-input" accept="image/*" multiple style="display:none">
-            <label for="edit-add-img-input" class="file-upload-btn" style="width:100%;"><i class="fas fa-plus"></i> Adicionar Mais Fotos</label>
+            <input type="file" id="edit-add-img-input" accept="image/*" multiple style="display:none"><label for="edit-add-img-input" class="file-upload-btn" style="width:100%;"><i class="fas fa-plus"></i> Add Fotos</label>
         </div>
         <div style="background:#222; padding:15px; border-radius:8px; border:1px dashed #444; margin-bottom:20px;">
-            <label style="color:var(--accent-color); font-size:0.8rem; display:block; margin-bottom:10px;">📦 Mover:</label>
+            <label style="color:var(--accent-color); font-size:0.8rem; display:block; margin-bottom:10px;">Mover:</label>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                <div>
-                    <span style="font-size:0.7rem; color:#888;">Cômodo</span>
-                    <select id="edit-move-room" class="auth-input" style="cursor:pointer;"></select>
-                </div>
-                <div>
-                    <span style="font-size:0.7rem; color:#888;">Lista/Categoria</span>
-                    <select id="edit-move-cat" class="auth-input" style="cursor:pointer;"></select>
-                </div>
+                <div><span style="font-size:0.7rem; color:#888;">Cômodo</span><select id="edit-move-room" class="auth-input"></select></div>
+                <div><span style="font-size:0.7rem; color:#888;">Lista</span><select id="edit-move-cat" class="auth-input"></select></div>
             </div>
         </div>
-        <button onclick="saveEditItem()" class="btn-auth-action" style="background:var(--success-color); color:#000;">Salvar Alterações</button>
-        <button onclick="closeEditModal()" class="btn-auth-action" style="background:#333; margin-top:10px;">Cancelar</button>
+        <button onclick="saveEditItem()" class="btn-auth-action" style="background:var(--success-color); color:#000;">Salvar</button>
     </div>
 </div>
 
@@ -258,30 +226,15 @@
     const passInput = document.getElementById('auth-pass');
     let isLoginMode = true;
 
-    document.getElementById('toggle-auth').addEventListener('click', (e) => {
-        e.preventDefault(); isLoginMode = !isLoginMode;
-        document.getElementById('btn-login-email').style.display = isLoginMode ? 'block' : 'none';
-        document.getElementById('btn-register-email').style.display = isLoginMode ? 'none' : 'block';
-        document.getElementById('toggle-text').innerText = isLoginMode ? "Não tem conta?" : "Já tem conta?";
-        document.getElementById('toggle-auth').innerText = isLoginMode ? "Criar conta" : "Fazer login";
-    });
-
-    document.getElementById('btn-login-email').addEventListener('click', () => {
-        signInWithEmailAndPassword(auth, emailInput.value, passInput.value).catch(e => alert(e.message));
-    });
-    document.getElementById('btn-register-email').addEventListener('click', () => {
-        createUserWithEmailAndPassword(auth, emailInput.value, passInput.value).catch(e => alert(e.message));
-    });
+    document.getElementById('toggle-auth').addEventListener('click', (e) => { e.preventDefault(); isLoginMode = !isLoginMode; document.getElementById('btn-login-email').style.display = isLoginMode ? 'block' : 'none'; document.getElementById('btn-register-email').style.display = isLoginMode ? 'none' : 'block'; document.getElementById('toggle-text').innerText = isLoginMode ? "Não tem conta?" : "Já tem conta?"; document.getElementById('toggle-auth').innerText = isLoginMode ? "Criar conta" : "Fazer login"; });
+    document.getElementById('btn-login-email').addEventListener('click', () => { signInWithEmailAndPassword(auth, emailInput.value, passInput.value).catch(e => alert(e.message)); });
+    document.getElementById('btn-register-email').addEventListener('click', () => { createUserWithEmailAndPassword(auth, emailInput.value, passInput.value).catch(e => alert(e.message)); });
     btnLogin.addEventListener('click', () => signInWithPopup(auth, provider).catch(e => alert(e.message)));
     window.logout = () => signOut(auth).then(() => location.reload());
 
     onAuthStateChanged(auth, async (user) => {
         if (user) {
-            window.currentUser = user;
-            overlay.style.display = 'none';
-            appContent.style.display = 'block';
-            document.getElementById('user-info').style.display = 'flex';
-            userNameSpan.innerText = user.displayName ? user.displayName.split(' ')[0] : (user.email ? user.email.split('@')[0] : "Usuário");
+            window.currentUser = user; overlay.style.display = 'none'; appContent.style.display = 'block'; document.getElementById('user-info').style.display = 'flex'; userNameSpan.innerText = user.displayName ? user.displayName.split(' ')[0] : (user.email ? user.email.split('@')[0] : "Usuário");
             if(window.loadUserData) await window.loadUserData(user.uid);
         }
     });
