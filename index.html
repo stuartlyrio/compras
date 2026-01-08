@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Estoque</title>
+    <title>Dashboard Estoque Seguro</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
@@ -12,8 +12,8 @@
 
 <div id="auth-overlay" class="auth-overlay">
     <div class="auth-box">
-        <h2><i class="fas fa-box-open"></i> App Estoque</h2>
-        <p id="auth-msg">Faça login para acessar</p>
+        <h2><i class="fas fa-shield-alt"></i> App Estoque</h2>
+        <p id="auth-msg">Faça login para sincronizar seus dados</p>
         <div class="auth-inputs">
             <input type="email" id="auth-email" placeholder="E-mail" class="auth-input">
             <input type="password" id="auth-pass" placeholder="Senha" class="auth-input">
@@ -27,17 +27,18 @@
 </div>
 
 <header>
-    <h1><i class="fas fa-boxes"></i> Controle Financeiro</h1>
+    <h1><i class="fas fa-boxes"></i> Controle Financeiro & Estoque</h1>
     <div id="user-info" style="display:none; align-items:center; gap:10px;">
         <span id="user-name" style="color:var(--accent-color); font-weight:bold;">Usuário</span>
-        <button onclick="logout()" class="btn-logout"><i class="fas fa-sign-out-alt"></i> Sair</button>
+        <button onclick="manualSaveAndExit()" class="btn-save-exit"><i class="fas fa-save"></i> Salvar e Sair</button>
+        <button onclick="logout()" class="btn-logout" title="Sair"><i class="fas fa-sign-out-alt"></i></button>
     </div>
 </header>
 
 <div id="app-content" style="display:none;">
     <div class="dashboard-area">
         <div class="dashboard-card wallet-card">
-            <div class="card-title"><i class="fas fa-wallet"></i> Dinheiro (Real)</div>
+            <div class="card-title"><i class="fas fa-wallet"></i> Carteira (Reais)</div>
             <div class="wallet-display">
                 <span class="wallet-label">Disponível</span>
                 <span class="wallet-value" id="wallet-balance">R$ 0,00</span>
@@ -60,7 +61,7 @@
                 <button onclick="refreshCryptoPrices()" class="refresh-btn" title="Atualizar Cotação"><i class="fas fa-sync-alt"></i></button>
             </div>
             <div class="wallet-display" style="background:#222; border:1px solid #f3ba2f;">
-                <span class="wallet-label">Saldo em Cripto (Aprox.)</span>
+                <span class="wallet-label">Saldo Cripto (Convertido)</span>
                 <span class="wallet-value" id="crypto-total-brl" style="color:#f3ba2f;">R$ 0,00</span>
             </div>
             <div class="wallet-controls">
@@ -71,6 +72,7 @@
                         <option value="ethereum">Ethereum (ETH)</option>
                         <option value="solana">Solana (SOL)</option>
                         <option value="tether">USDT (Dólar)</option>
+                        <option value="ripple">XRP</option>
                     </select>
                     <input type="number" id="crypto-amount" placeholder="Qtd (ex: 0.001)" step="0.000001" style="flex:1;">
                 </div>
@@ -85,31 +87,31 @@
             <div class="card-title"><i class="fas fa-layer-group"></i> Níveis de Cobertura</div>
             
             <div class="progress-group">
-                <div class="prog-label">Nível Essencial (Dinheiro Total vs Essencial)</div>
+                <div class="prog-label">1. Nível Essencial (Dinheiro vs Essencial)</div>
                 <div class="progress-track"><div id="bar-level-1" class="progress-fill fill-1" style="width: 0%"></div></div>
                 <div class="prog-below" id="text-level-1">0%</div>
             </div>
 
             <div class="progress-group">
-                <div class="prog-label">Nível Básico (Dinheiro Total vs Comum)</div>
+                <div class="prog-label">2. Nível Básico (Dinheiro vs Comum)</div>
                 <div class="progress-track"><div id="bar-level-2" class="progress-fill fill-2" style="width: 0%"></div></div>
                 <div class="prog-below" id="text-level-2">0%</div>
             </div>
 
             <div class="progress-group">
-                <div class="prog-label">Nível Sonho (Dinheiro Total vs Desejado)</div>
+                <div class="prog-label">3. Nível Sonho (Dinheiro vs Desejado)</div>
                 <div class="progress-track"><div id="bar-level-3" class="progress-fill fill-3" style="width: 0%"></div></div>
                 <div class="prog-below" id="text-level-3">0%</div>
             </div>
 
             <div class="progress-group">
-                <div class="prog-label">Nível Estável (Cobre o Projeto Todo?)</div>
+                <div class="prog-label">4. Nível Estável (Dinheiro vs Projeto Todo)</div>
                 <div class="progress-track"><div id="bar-level-4" class="progress-fill fill-4" style="width: 0%"></div></div>
                 <div class="prog-below" id="text-level-4">0%</div>
             </div>
 
             <div class="progress-group">
-                <div class="prog-label">Conclusão (Itens Pagos vs Pendentes)</div>
+                <div class="prog-label">5. Conclusão (Pago vs Pendente)</div>
                 <div class="progress-track"><div id="bar-level-5" class="progress-fill fill-5" style="width: 0%"></div></div>
                 <div class="prog-below" id="text-level-5">0%</div>
             </div>
@@ -211,7 +213,6 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(app);
     const auth = getAuth(app);
     const db = getFirestore(app);
     const provider = new GoogleAuthProvider();

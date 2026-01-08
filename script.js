@@ -22,10 +22,13 @@ window.loadUserData = async (uid) => {
         if (docSnap.exists()) {
             const data = docSnap.data();
             
-            // Migração se necessário
+            // Migração de estrutura antiga
             if (data.sections && (!data.rooms || data.rooms.length === 0)) {
+                console.log("Migrando estrutura...");
                 rooms = [];
-                data.sections.forEach(sec => { if (sec.rooms) sec.rooms.forEach(r => rooms.push(r)); });
+                data.sections.forEach(sec => {
+                    if (sec.rooms) sec.rooms.forEach(r => rooms.push(r));
+                });
             } else {
                 rooms = data.rooms || [];
             }
@@ -43,19 +46,60 @@ window.loadUserData = async (uid) => {
         if(rooms.length > 0) switchRoom(rooms[0].id);
         renderRoomsNav();
         updateWalletUI();
-        refreshCryptoPrices(); // Puxa valores do Bitcoin/Etherium ao iniciar
+        refreshCryptoPrices();
         renderCryptoList();
         setupKeyboardShortcuts();
         setupEditModalImageInput();
     } catch (e) { console.error("Erro load:", e); }
 };
 
-const saveData = async () => {
-    if (!window.currentUser) return;
+// --- SALVAMENTO COM FEEDBACK E SEGURANÇA ---
+const saveData = async (isManual = false) => {
+    if (!window.currentUser) {
+        if(isManual) alert("Você precisa estar logado para salvar!");
+        return;
+    }
     const uid = window.currentUser.uid;
     const dataToSave = { rooms, houseData, checklistData, wallet, investments };
-    try { await window.setDoc(window.doc(window.db, "users", uid), dataToSave, { merge: true }); } catch (e) { console.error("Erro save:", e); }
+    
+    try { 
+        await window.setDoc(window.doc(window.db, "users", uid), dataToSave, { merge: true }); 
+        // Feedback visual para salvamento automático
+        if(!isManual) showToast("Salvo automaticamente.");
+    } catch (e) { 
+        console.error("Erro save:", e); 
+        alert("ERRO AO SALVAR! Verifique sua conexão. Seus dados não foram sincronizados.");
+    }
 };
+
+// --- SALVAR E SAIR MANUAL (BOTÃO) ---
+window.manualSaveAndExit = async () => {
+    if(!window.currentUser) { alert("Você não está logado."); return; }
+    
+    const btn = document.querySelector('.btn-save-exit');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+    btn.disabled = true;
+
+    await saveData(true); // Força o salvamento e espera
+
+    btn.innerHTML = '<i class="fas fa-check"></i> Salvo!';
+    setTimeout(() => {
+        alert("Todos os dados foram salvos com sucesso na nuvem. Saindo com segurança.");
+        window.logout();
+    }, 500);
+};
+
+function showToast(msg) {
+    // Evita acumular toasts
+    const existing = document.querySelector('.toast-notification');
+    if(existing) existing.remove();
+
+    const div = document.createElement('div');
+    div.className = 'toast-notification';
+    div.innerHTML = `<i class="fas fa-check-circle" style="color:#4CAF50;"></i> ${msg}`;
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), 2500);
+}
 
 function initializeRoomData(room) {
     if (!houseData[room.id]) {
@@ -65,32 +109,25 @@ function initializeRoomData(room) {
     }
 }
 
-// --- FUNÇÃO DE LOG UNIFICADO (Histórico) ---
+// --- LOG UNIFICADO (HISTÓRICO) ---
 function logTransaction(type, desc, val) {
-    // Tipo: 'add' (verde), 'remove' (vermelho), 'crypto-add' (amarelo), 'crypto-rem' (laranja)
     wallet.history.unshift({ type, desc, val, date: new Date().toLocaleDateString() });
-    if(wallet.history.length > 20) wallet.history.pop(); // Mantém os últimos 20
+    if(wallet.history.length > 20) wallet.history.pop();
     updateWalletUI();
 }
 
-// --- CARTEIRA (Dinheiro Real) ---
+// --- CARTEIRA ---
 window.handleTransaction = (type) => {
     const descInput = document.getElementById('trans-desc');
     const valInput = document.getElementById('trans-val');
     const desc = descInput.value.trim() || (type === 'add' ? 'Depósito' : 'Retirada');
     const val = parseFloat(valInput.value);
-    
     if (isNaN(val) || val <= 0) { alert("Valor inválido."); return; }
     
     wallet.balance = parseFloat(wallet.balance) || 0;
     
-    if (type === 'add') { 
-        wallet.balance += val; 
-        logTransaction('add', desc, val);
-    } else { 
-        wallet.balance -= val; 
-        logTransaction('remove', desc, val);
-    }
+    if (type === 'add') { wallet.balance += val; logTransaction('add', desc, val); } 
+    else { wallet.balance -= val; logTransaction('remove', desc, val); }
     
     descInput.value = ''; valInput.value = '';
     saveData(); updateAllTotals();
@@ -101,41 +138,28 @@ function updateWalletUI() {
     document.getElementById('wallet-balance').innerText = formatCurrency(bal);
     const list = document.getElementById('wallet-history');
     list.innerHTML = '';
-    
     wallet.history.slice(0, 8).forEach(item => {
         const li = document.createElement('li');
-        let colorClass = 'hist-plus';
-        let signal = '+';
-        
+        let colorClass = 'hist-plus'; let signal = '+';
         if(item.type === 'remove') { colorClass = 'hist-minus'; signal = '-'; }
-        if(item.type === 'crypto-add') { colorClass = 'hist-crypto'; signal = ''; } // Cripto neutro ou cor especial
-        if(item.type === 'crypto-rem') { colorClass = 'hist-crypto'; signal = ''; }
-
-        // Se for cripto, não mostra R$ necessariamente, mostra a mensagem
-        const valText = (item.type.includes('crypto')) ? '' : `${signal} ${formatCurrency(item.val)}`;
-
-        li.innerHTML = `
-            <span style="font-size:0.85rem;">${item.desc}</span> 
-            <span class="${colorClass}" style="font-weight:bold;">${valText}</span>
-        `;
+        if(item.type.includes('crypto')) { colorClass = 'hist-crypto'; signal = ''; }
+        
+        const valText = item.type.includes('crypto') ? '' : `${signal} ${formatCurrency(item.val)}`;
+        li.innerHTML = `<span>${item.desc}</span> <span class="${colorClass}" style="font-weight:bold;">${valText}</span>`;
         list.appendChild(li);
     });
 }
 
-// --- CRIPTOMOEDAS (Bitcoin, Ethereum, etc) ---
+// --- CRIPTO ---
 window.addCrypto = () => {
     const coin = document.getElementById('crypto-select').value;
     const amount = parseFloat(document.getElementById('crypto-amount').value);
-    
     if(isNaN(amount) || amount <= 0) { alert("Quantidade inválida"); return; }
     
     const existing = investments.find(i => i.coinId === coin);
-    if(existing) { existing.amount += amount; } 
-    else { investments.push({ coinId: coin, amount: amount }); }
+    if(existing) { existing.amount += amount; } else { investments.push({ coinId: coin, amount: amount }); }
     
-    // Loga no histórico
     logTransaction('crypto-add', `Comprou ${amount} ${coin.toUpperCase()}`, 0);
-
     document.getElementById('crypto-amount').value = '';
     renderCryptoList(); saveData(); refreshCryptoPrices();
 };
@@ -143,12 +167,9 @@ window.addCrypto = () => {
 window.removeCrypto = (coinId) => {
     const item = investments.find(i => i.coinId === coinId);
     if(!item) return;
-
     if(confirm(`Remover todo o saldo de ${coinId.toUpperCase()}?`)) {
         investments = investments.filter(i => i.coinId !== coinId);
-        // Loga no histórico
-        logTransaction('crypto-rem', `Vendeu/Removeu ${item.amount} ${coinId.toUpperCase()}`, 0);
-        
+        logTransaction('crypto-rem', `Vendeu ${item.amount} ${coinId.toUpperCase()}`, 0);
         renderCryptoList(); saveData(); updateCryptoTotal();
     }
 };
@@ -157,7 +178,6 @@ window.refreshCryptoPrices = async () => {
     const btn = document.querySelector('.refresh-btn');
     if(btn) btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     try {
-        // IDs compatíveis com CoinGecko
         const ids = 'bitcoin,ethereum,solana,tether,ripple'; 
         const res = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=brl`);
         currentCryptoPrices = await res.json();
@@ -169,24 +189,16 @@ function updateCryptoTotal() {
     let totalBRL = 0;
     const list = document.getElementById('crypto-list');
     if(list) list.innerHTML = ''; 
-    
     investments.forEach(inv => {
         const price = currentCryptoPrices[inv.coinId] ? currentCryptoPrices[inv.coinId].brl : 0;
         const valBRL = inv.amount * price;
         totalBRL += valBRL;
-        
         const li = document.createElement('li');
-        li.innerHTML = `
-            <span>${inv.coinId.toUpperCase()} (${inv.amount})</span>
-            <div style="display:flex; gap:10px; align-items:center;">
-                <span style="color:#f3ba2f;">${price > 0 ? formatCurrency(valBRL) : '...'}</span>
-                <i class="fas fa-trash" style="cursor:pointer; color:#ef5350;" onclick="removeCrypto('${inv.coinId}')" title="Remover"></i>
-            </div>`;
+        li.innerHTML = `<span>${inv.coinId.toUpperCase()} (${inv.amount})</span><div style="display:flex; gap:10px; align-items:center;"><span style="color:#f3ba2f;">${price>0 ? formatCurrency(valBRL) : '...'}</span><i class="fas fa-trash" style="cursor:pointer; color:#ef5350;" onclick="removeCrypto('${inv.coinId}')"></i></div>`;
         list.appendChild(li);
     });
-    
     document.getElementById('crypto-total-brl').innerText = formatCurrency(totalBRL);
-    updateAllTotals(totalBRL); // Manda o total de cripto para o cálculo global
+    updateAllTotals(totalBRL);
 }
 function renderCryptoList() { updateCryptoTotal(); }
 
@@ -196,29 +208,18 @@ function renderRoomsNav() {
     const addBtn = document.createElement('button');
     addBtn.className = 'add-tab-btn';
     addBtn.innerHTML = '<i class="fas fa-plus"></i>';
-    addBtn.onclick = () => { 
-        document.getElementById('modal-room-name').value = '';
-        document.getElementById('modal-room-bg').value = '#19191a';
-        document.getElementById('modal-room-text').value = '#888888';
-        updateRoomPreview();
-        document.getElementById('new-room-modal').style.display='flex'; 
-    };
+    addBtn.onclick = () => { document.getElementById('modal-room-name').value = ''; document.getElementById('modal-room-bg').value = '#19191a'; document.getElementById('modal-room-text').value = '#888888'; updateRoomPreview(); document.getElementById('new-room-modal').style.display='flex'; };
     nav.appendChild(addBtn);
 
     rooms.forEach(room => {
-        const btn = document.createElement('button'); 
-        btn.className = 'room-btn'; 
-        btn.innerText = room.name;
+        const btn = document.createElement('button'); btn.className = 'room-btn'; btn.innerText = room.name;
         if (room.id === currentRoomId) btn.classList.add('active');
         if (room.bgColor) btn.style.backgroundColor = room.bgColor;
         if (room.textColor) btn.style.color = room.textColor;
-        
-        btn.onclick = () => switchRoom(room.id); 
-        btn.dataset.target = room.id;
+        btn.onclick = () => switchRoom(room.id); btn.dataset.target = room.id;
         btn.ondragover = (e) => { e.preventDefault(); btn.classList.add('drag-over-tab'); };
         btn.ondragleave = (e) => { btn.classList.remove('drag-over-tab'); };
         btn.ondrop = (e) => dropOnRoom(e, room.id);
-        
         nav.appendChild(btn);
     });
 }
@@ -228,9 +229,7 @@ window.updateRoomPreview = () => {
     const bg = document.getElementById('modal-room-bg').value;
     const txt = document.getElementById('modal-room-text').value;
     const preview = document.getElementById('room-preview-box');
-    preview.innerText = name;
-    preview.style.backgroundColor = bg;
-    preview.style.color = txt;
+    preview.innerText = name; preview.style.backgroundColor = bg; preview.style.color = txt;
 };
 
 window.saveNewRoom = () => {
@@ -311,20 +310,10 @@ function renderColumnHTML(r, c, t) {
 }
 
 window.deleteList = (r, c) => {
-    if(confirm(`Tem certeza que deseja excluir a lista "${capitalize(c)}"?`)) {
-        delete houseData[r][c]; saveData(); switchRoom(r); updateAllTotals();
-    }
+    if(confirm(`Excluir a lista "${capitalize(c)}"?`)) { delete houseData[r][c]; saveData(); switchRoom(r); updateAllTotals(); }
 };
 
-window.openNewListModal = () => {
-    document.getElementById('modal-list-name').value = '';
-    document.getElementById('target-current').checked = true;
-    document.getElementById('manual-selection-wrapper').style.display = 'none';
-    document.getElementById('room-selection-container').style.display = 'none';
-    setupRoomCheckboxes();
-    document.getElementById('new-list-modal').style.display = 'flex';
-};
-
+window.openNewListModal = () => { document.getElementById('modal-list-name').value = ''; document.getElementById('target-current').checked = true; document.getElementById('manual-selection-wrapper').style.display = 'none'; document.getElementById('room-selection-container').style.display = 'none'; setupRoomCheckboxes(); document.getElementById('new-list-modal').style.display = 'flex'; };
 window.toggleListSelection = (val) => { document.getElementById('manual-selection-wrapper').style.display = (val === 'select') ? 'block' : 'none'; };
 window.toggleRoomDropdown = () => { const el = document.getElementById('room-selection-container'); const arrow = document.getElementById('selector-arrow'); if (el.style.display === 'none') { el.style.display = 'block'; arrow.style.transform = 'rotate(180deg)'; } else { el.style.display = 'none'; arrow.style.transform = 'rotate(0deg)'; } };
 function setupRoomCheckboxes() { const c = document.getElementById('room-selection-container'); c.innerHTML = ''; rooms.forEach(r => { const div = document.createElement('div'); div.className = 'room-checkbox-row'; div.innerHTML = `<label><input type="checkbox" value="${r.id}" ${r.id===currentRoomId?'checked':''}> ${r.name}</label>`; c.appendChild(div); }); }
@@ -344,7 +333,6 @@ window.leaveDrop = (e) => { const list = e.target.closest('ul'); if(list) list.c
 window.dropItem = (e, targetR, targetC) => { e.preventDefault(); const list = e.target.closest('ul'); if(list) list.classList.remove('drag-over'); try { const data = JSON.parse(e.dataTransfer.getData("text/plain")); const { r: originR, c: originC, id: itemId } = data; if (originR === targetR && originC === targetC) return; const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId); if (itemIndex === -1) return; const item = houseData[originR][originC][itemIndex]; houseData[originR][originC].splice(itemIndex, 1); houseData[targetR][targetC].push(item); renderLists(originR, originC); renderLists(targetR, targetC); updateAllTotals(); saveData(); } catch (err) { console.error("Drop error:", err); } };
 window.dropOnRoom = (e, targetRoomId) => { e.preventDefault(); const btn = document.querySelector(`button[data-target="${targetRoomId}"]`); if(btn) btn.classList.remove('drag-over-tab'); try { const data = JSON.parse(e.dataTransfer.getData("text/plain")); const { r: originR, c: originC, id: itemId } = data; if (originR === targetRoomId) return; const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId); if (itemIndex === -1) return; const item = houseData[originR][originC][itemIndex]; houseData[originR][originC].splice(itemIndex, 1); const targetCat = houseData[targetRoomId][originC] ? originC : Object.keys(houseData[targetRoomId])[0]; houseData[targetRoomId][targetCat].push(item); renderLists(originR, originC); showToast(`Item movido.`); updateAllTotals(); saveData(); } catch (err) { console.error("Room Drop error:", err); } };
 function setupKeyboardShortcuts() { document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'c') { if (hoveredItemData) { appClipboard = JSON.parse(JSON.stringify(hoveredItemData)); showToast(`Copiado: ${appClipboard.item.name}`); } } if ((e.ctrlKey || e.metaKey) && e.key === 'v') { if (appClipboard && currentRoomId) { const newItem = { ...appClipboard.item, id: Date.now(), status: 'pending', name: appClipboard.item.name + ' (Cópia)' }; const targetCat = houseData[currentRoomId][appClipboard.c] ? appClipboard.c : Object.keys(houseData[currentRoomId])[0]; houseData[currentRoomId][targetCat].push(newItem); renderLists(currentRoomId, targetCat); updateAllTotals(); saveData(); showToast(`Colado.`); } } }); }
-function showToast(msg) { const div = document.createElement('div'); div.className = 'toast-notification'; div.innerHTML = `<i class="fas fa-check-circle" style="color:#4CAF50;"></i> ${msg}`; document.body.appendChild(div); setTimeout(() => { div.remove(); }, 3000); }
 window.openEditModal = (r, c, id) => { const item = houseData[r][c].find(i => i.id === id); if (!item) return; tempEditImages = Array.isArray(item.imgs) && item.imgs.length > 0 ? [...item.imgs] : (item.img ? [item.img] : []); document.getElementById('edit-r-origin').value = r; document.getElementById('edit-c-origin').value = c; document.getElementById('edit-id').value = id; document.getElementById('edit-name').value = item.name; document.getElementById('edit-price').value = item.price; document.getElementById('edit-link').value = item.link || ''; document.getElementById('edit-desc').value = item.desc || ''; renderEditGallery(); const roomSelect = document.getElementById('edit-move-room'); roomSelect.innerHTML = ''; rooms.forEach(room => { const opt = document.createElement('option'); opt.value = room.id; opt.text = room.name; if(room.id === r) opt.selected = true; roomSelect.appendChild(opt); }); const catSelect = document.getElementById('edit-move-cat'); catSelect.innerHTML = ''; Object.keys(houseData[r]).forEach(cat => { const opt = document.createElement('option'); opt.value = cat; opt.text = capitalize(cat); if(cat === c) opt.selected = true; catSelect.appendChild(opt); }); roomSelect.onchange = (e) => { const selectedRoom = e.target.value; catSelect.innerHTML = ''; Object.keys(houseData[selectedRoom]).forEach(cat => { const opt = document.createElement('option'); opt.value = cat; opt.text = capitalize(cat); catSelect.appendChild(opt); }); }; document.getElementById('edit-modal').style.display = 'flex'; };
 window.renderEditGallery = () => { const container = document.getElementById('edit-gallery-container'); container.innerHTML = ''; tempEditImages.forEach((img, idx) => { const wrapper = document.createElement('div'); wrapper.className = 'edit-thumb-wrapper'; wrapper.innerHTML = `<img src="${img}" class="edit-thumb"><button class="edit-remove-img" onclick="removeEditImage(${idx})">&times;</button>`; container.appendChild(wrapper); }); };
 window.removeEditImage = (idx) => { tempEditImages.splice(idx, 1); renderEditGallery(); };
@@ -354,9 +342,8 @@ window.saveEditItem = () => { const rOld = document.getElementById('edit-r-origi
 
 // --- CÁLCULO E BARRAS (ATUALIZADO) ---
 function updateAllTotals(cryptoTotal = 0) {
-    let currentCryptoVal = cryptoTotal; // Pega o valor que veio da atualização do preço
+    let currentCryptoVal = cryptoTotal; 
     if(cryptoTotal === 0 && investments.length > 0 && Object.keys(currentCryptoPrices).length > 0) {
-        // Recalcula se o argumento veio zerado mas temos dados
         investments.forEach(inv => { currentCryptoVal += (inv.amount * (currentCryptoPrices[inv.coinId]?.brl || 0)); });
     }
 
