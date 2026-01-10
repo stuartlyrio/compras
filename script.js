@@ -22,6 +22,7 @@ window.loadUserData = async (uid) => {
         if (docSnap.exists()) {
             const data = docSnap.data();
             
+            // Migração de estrutura antiga
             if (data.sections && (!data.rooms || data.rooms.length === 0)) {
                 console.log("Migrando estrutura...");
                 rooms = [];
@@ -49,24 +50,32 @@ window.loadUserData = async (uid) => {
         renderCryptoList();
         setupKeyboardShortcuts();
         setupEditModalImageInput();
-    } catch (e) { console.error("Erro load:", e); }
+    } catch (e) { 
+        console.error("Erro load:", e); 
+        alert("Erro ao carregar dados: " + e.message);
+    }
 };
 
-// --- SALVAMENTO ---
+// --- SALVAMENTO BLINDADO ---
 const saveData = async (isManual = false) => {
     if (!window.currentUser) {
         if(isManual) alert("Você precisa estar logado para salvar!");
         return;
     }
     const uid = window.currentUser.uid;
-    const dataToSave = { rooms, houseData, checklistData, wallet, investments };
+    
+    // PREPARAÇÃO DOS DADOS (LIMPEZA)
+    // Isso remove valores 'undefined' que fazem o Firebase travar
+    const rawData = { rooms, houseData, checklistData, wallet, investments };
+    const dataToSave = JSON.parse(JSON.stringify(rawData)); 
     
     try { 
         await window.setDoc(window.doc(window.db, "users", uid), dataToSave, { merge: true }); 
         if(!isManual) showToast("Salvo automaticamente.");
     } catch (e) { 
         console.error("Erro save:", e); 
-        alert("ERRO AO SALVAR! Verifique sua conexão.");
+        // Mostra o erro exato na tela para facilitar o diagnóstico
+        alert(`ERRO AO SALVAR!\nCódigo: ${e.code}\nMensagem: ${e.message}`);
     }
 };
 
@@ -74,6 +83,7 @@ window.manualSaveAndExit = async () => {
     if(!window.currentUser) { alert("Você não está logado."); return; }
     
     const btn = document.querySelector('.btn-save-exit');
+    const originalText = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
     btn.disabled = true;
 
@@ -81,7 +91,7 @@ window.manualSaveAndExit = async () => {
 
     btn.innerHTML = '<i class="fas fa-check"></i> Salvo!';
     setTimeout(() => {
-        alert("Dados salvos. Saindo...");
+        alert("Dados salvos com sucesso! Você pode fechar ou sair.");
         window.logout();
     }, 500);
 };
@@ -106,7 +116,7 @@ function initializeRoomData(room) {
 
 // --- LOG UNIFICADO E DELETE ---
 function logTransaction(type, desc, val) {
-    const id = Date.now() + Math.random(); // ID Único para poder deletar depois
+    const id = Date.now() + Math.random(); 
     wallet.history.unshift({ id, type, desc, val, date: new Date().toLocaleDateString() });
     if(wallet.history.length > 50) wallet.history.pop();
     updateWalletUI();
@@ -118,9 +128,7 @@ window.deleteTransaction = (id) => {
     
     const item = wallet.history[index];
     
-    // LÓGICA DE REVERSÃO
-    // Se era Entrada, tira o valor. Se era Saída, devolve o valor.
-    // Cripto apenas remove o log (pois o saldo é gerido no outro array)
+    // Reverte o saldo (apenas visual, pois o histórico é o registro)
     if(item.type === 'add') {
         wallet.balance -= item.val;
     } else if (item.type === 'remove') {
@@ -131,7 +139,7 @@ window.deleteTransaction = (id) => {
     updateWalletUI();
     updateAllTotals();
     saveData();
-    showToast("Histórico corrigido.");
+    showToast("Transação removida.");
 };
 
 // --- CARTEIRA ---
@@ -171,7 +179,6 @@ function updateWalletUI() {
         
         const valText = item.type.includes('crypto') ? '' : `${signal} ${formatCurrency(item.val)}`;
         
-        // Adicionamos o botão de deletar (lixeira)
         li.innerHTML = `
             <div style="flex-grow:1;">
                 <span style="font-size:0.85rem; display:block;">${item.desc}</span> 
@@ -353,7 +360,7 @@ function setupRoomCheckboxes() { const c = document.getElementById('room-selecti
 window.saveNewList = () => { const name = document.getElementById('modal-list-name').value.trim(); if(!name) return; const listId = name.toLowerCase().replace(/[^a-z0-9]/g, '-'); const target = document.querySelector('input[name="add-list-target"]:checked').value; let targets = []; if(target === 'current') targets.push(currentRoomId); else if(target === 'global') rooms.forEach(r => targets.push(r.id)); else if(target === 'select') document.querySelectorAll('#room-selection-container input:checked').forEach(cb => targets.push(cb.value)); targets.forEach(rid => { if(!houseData[rid]) houseData[rid] = {}; if(!houseData[rid][listId]) houseData[rid][listId] = []; }); document.getElementById('new-list-modal').style.display = 'none'; if(targets.includes(currentRoomId)) switchRoom(currentRoomId); updateAllTotals(); saveData(); };
 window.editListName = (r, old) => { const n = prompt("Novo nome:", old); if(n && n !== old) { const k = n.toLowerCase().trim().replace(/\s+/g, '-'); if(houseData[r][k]) { alert("Nome já existe!"); return; } houseData[r][k] = houseData[r][old]; delete houseData[r][old]; saveData(); switchRoom(r); } };
 
-// ... [Funções Imagem/Drag/Drop/Edit iguais] ...
+// ... [Funções Imagem/Drag/Drop/Edit] ...
 window.changeImage = (e, direction, r, c, itemId) => { e.stopPropagation(); const item = houseData[r][c].find(i => i.id === itemId); if (!item) return; const imgs = Array.isArray(item.imgs) ? item.imgs : (item.img ? [item.img] : ['https://via.placeholder.com/150/000/fff?text=Sem+Foto']); const imgEl = document.getElementById(`img-el-${itemId}`); let currentIndex = parseInt(imgEl.dataset.index) || 0; let newIndex = currentIndex + direction; if (newIndex >= imgs.length) newIndex = 0; if (newIndex < 0) newIndex = imgs.length - 1; imgEl.src = imgs[newIndex]; imgEl.dataset.index = newIndex; const countEl = document.getElementById(`img-count-${itemId}`); if(countEl) countEl.innerText = `${newIndex + 1}/${imgs.length}`; };
 function renderLists(r, c) { const ul = document.getElementById(`list-${r}-${c}`); ul.innerHTML=''; if(!houseData[r] || !houseData[r][c]) return; houseData[r][c].forEach(i => { const li = document.createElement('li'); const bought = i.status==='bought'; li.className=`item-card ${bought?'bought':''}`; li.setAttribute('draggable', 'true'); li.ondragstart = (e) => dragStart(e, r, c, i.id); li.onclick = () => openEditModal(r, c, i.id); li.onmouseenter = () => { hoveredItemData = { r, c, item: i }; }; li.onmouseleave = () => { hoveredItemData = null; }; const images = Array.isArray(i.imgs) && i.imgs.length > 0 ? i.imgs : (i.img ? [i.img] : ['https://via.placeholder.com/150/000/fff?text=Sem+Foto']); const showArrows = images.length > 1; li.innerHTML=`<div class="carousel-wrapper">${showArrows ? `<button class="carousel-btn prev-btn" onclick="changeImage(event, -1, '${r}', '${c}', ${i.id})">❮</button>` : ''}<img src="${images[0]}" class="item-img" id="img-el-${i.id}" data-index="0">${showArrows ? `<button class="carousel-btn next-btn" onclick="changeImage(event, 1, '${r}', '${c}', ${i.id})">❯</button>` : ''}${showArrows ? `<span class="img-counter" id="img-count-${i.id}">1/${images.length}</span>` : ''}</div><div class="item-info"><span class="item-name">${i.name}</span><span class="item-price">${formatCurrency(i.price)}</span>${i.desc?`<span class="item-desc">${i.desc}</span>`:''} ${i.link?`<a href="${i.link}" target="_blank" class="item-link" onclick="event.stopPropagation()">Link <i class="fas fa-external-link-alt"></i></a>`:''}<label class="status-switch" onclick="event.stopPropagation()"><input type="checkbox" ${bought?'checked':''} onchange="toggleStatus('${r}','${c}',${i.id})"><span class="slider"><span class="status-label label-comprado">COMPRADO</span><span class="status-label label-pendente">PENDENTE</span></span></label></div><button class="delete-btn" onclick="event.stopPropagation(); removeItem('${r}','${c}',${i.id})"><i class="fas fa-trash"></i></button>`; ul.appendChild(li); }); }
 window.addItem = async (r, c) => { const name = document.getElementById(`in-${r}-${c}-name`).value.trim(); const price = parseFloat(document.getElementById(`in-${r}-${c}-price`).value); const desc = document.getElementById(`in-${r}-${c}-desc`).value; const link = document.getElementById(`in-${r}-${c}-link`).value; const fileIn = document.getElementById(`in-${r}-${c}-img`); const files = fileIn.files; const remote = fileIn.getAttribute('data-remote'); if(!name || isNaN(price)) { alert("Nome e Preço são obrigatórios!"); return; } const processFiles = async () => { if (files.length > 0) { const promises = Array.from(files).map(file => { return new Promise((resolve) => { const reader = new FileReader(); reader.onload = (e) => resolve(e.target.result); reader.readAsDataURL(file); }); }); return Promise.all(promises); } else if (remote) { return [remote]; } else { return ['https://via.placeholder.com/150/000/fff?text=Sem+Foto']; } }; const finalImages = await processFiles(); houseData[r][c].push({ id: Date.now(), name, price, desc, link, imgs: finalImages, status: 'pending' }); document.getElementById(`in-${r}-${c}-name`).value=''; document.getElementById(`in-${r}-${c}-price`).value=''; document.getElementById(`in-${r}-${c}-desc`).value=''; document.getElementById(`in-${r}-${c}-link`).value=''; fileIn.value=''; fileIn.removeAttribute('data-remote'); document.querySelector(`label[for="in-${r}-${c}-img"]`).innerHTML = '<i class="fas fa-images"></i> Fotos'; renderLists(r, c); updateAllTotals(); saveData(); };
@@ -366,7 +373,6 @@ window.leaveDrop = (e) => { const list = e.target.closest('ul'); if(list) list.c
 window.dropItem = (e, targetR, targetC) => { e.preventDefault(); const list = e.target.closest('ul'); if(list) list.classList.remove('drag-over'); try { const data = JSON.parse(e.dataTransfer.getData("text/plain")); const { r: originR, c: originC, id: itemId } = data; if (originR === targetR && originC === targetC) return; const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId); if (itemIndex === -1) return; const item = houseData[originR][originC][itemIndex]; houseData[originR][originC].splice(itemIndex, 1); houseData[targetR][targetC].push(item); renderLists(originR, originC); renderLists(targetR, targetC); updateAllTotals(); saveData(); } catch (err) { console.error("Drop error:", err); } };
 window.dropOnRoom = (e, targetRoomId) => { e.preventDefault(); const btn = document.querySelector(`button[data-target="${targetRoomId}"]`); if(btn) btn.classList.remove('drag-over-tab'); try { const data = JSON.parse(e.dataTransfer.getData("text/plain")); const { r: originR, c: originC, id: itemId } = data; if (originR === targetRoomId) return; const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId); if (itemIndex === -1) return; const item = houseData[originR][originC][itemIndex]; houseData[originR][originC].splice(itemIndex, 1); const targetCat = houseData[targetRoomId][originC] ? originC : Object.keys(houseData[targetRoomId])[0]; houseData[targetRoomId][targetCat].push(item); renderLists(originR, originC); showToast(`Item movido.`); updateAllTotals(); saveData(); } catch (err) { console.error("Room Drop error:", err); } };
 function setupKeyboardShortcuts() { document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'c') { if (hoveredItemData) { appClipboard = JSON.parse(JSON.stringify(hoveredItemData)); showToast(`Copiado: ${appClipboard.item.name}`); } } if ((e.ctrlKey || e.metaKey) && e.key === 'v') { if (appClipboard && currentRoomId) { const newItem = { ...appClipboard.item, id: Date.now(), status: 'pending', name: appClipboard.item.name + ' (Cópia)' }; const targetCat = houseData[currentRoomId][appClipboard.c] ? appClipboard.c : Object.keys(houseData[currentRoomId])[0]; houseData[currentRoomId][targetCat].push(newItem); renderLists(currentRoomId, targetCat); updateAllTotals(); saveData(); showToast(`Colado.`); } } }); }
-function showToast(msg) { const div = document.createElement('div'); div.className = 'toast-notification'; div.innerHTML = `<i class="fas fa-check-circle" style="color:#4CAF50;"></i> ${msg}`; document.body.appendChild(div); setTimeout(() => { div.remove(); }, 3000); }
 window.openEditModal = (r, c, id) => { const item = houseData[r][c].find(i => i.id === id); if (!item) return; tempEditImages = Array.isArray(item.imgs) && item.imgs.length > 0 ? [...item.imgs] : (item.img ? [item.img] : []); document.getElementById('edit-r-origin').value = r; document.getElementById('edit-c-origin').value = c; document.getElementById('edit-id').value = id; document.getElementById('edit-name').value = item.name; document.getElementById('edit-price').value = item.price; document.getElementById('edit-link').value = item.link || ''; document.getElementById('edit-desc').value = item.desc || ''; renderEditGallery(); const roomSelect = document.getElementById('edit-move-room'); roomSelect.innerHTML = ''; rooms.forEach(room => { const opt = document.createElement('option'); opt.value = room.id; opt.text = room.name; if(room.id === r) opt.selected = true; roomSelect.appendChild(opt); }); const catSelect = document.getElementById('edit-move-cat'); catSelect.innerHTML = ''; Object.keys(houseData[r]).forEach(cat => { const opt = document.createElement('option'); opt.value = cat; opt.text = capitalize(cat); if(cat === c) opt.selected = true; catSelect.appendChild(opt); }); roomSelect.onchange = (e) => { const selectedRoom = e.target.value; catSelect.innerHTML = ''; Object.keys(houseData[selectedRoom]).forEach(cat => { const opt = document.createElement('option'); opt.value = cat; opt.text = capitalize(cat); catSelect.appendChild(opt); }); }; document.getElementById('edit-modal').style.display = 'flex'; };
 window.renderEditGallery = () => { const container = document.getElementById('edit-gallery-container'); container.innerHTML = ''; tempEditImages.forEach((img, idx) => { const wrapper = document.createElement('div'); wrapper.className = 'edit-thumb-wrapper'; wrapper.innerHTML = `<img src="${img}" class="edit-thumb"><button class="edit-remove-img" onclick="removeEditImage(${idx})">&times;</button>`; container.appendChild(wrapper); }); };
 window.removeEditImage = (idx) => { tempEditImages.splice(idx, 1); renderEditGallery(); };
@@ -374,7 +380,7 @@ function setupEditModalImageInput() { const input = document.getElementById('edi
 window.closeEditModal = () => { document.getElementById('edit-modal').style.display = 'none'; };
 window.saveEditItem = () => { const rOld = document.getElementById('edit-r-origin').value; const cOld = document.getElementById('edit-c-origin').value; const id = parseInt(document.getElementById('edit-id').value); const rNew = document.getElementById('edit-move-room').value; const cNew = document.getElementById('edit-move-cat').value; const itemIndex = houseData[rOld][cOld].findIndex(i => i.id === id); if (itemIndex === -1) return; const item = houseData[rOld][cOld][itemIndex]; houseData[rOld][cOld].splice(itemIndex, 1); item.name = document.getElementById('edit-name').value; item.price = parseFloat(document.getElementById('edit-price').value) || 0; item.link = document.getElementById('edit-link').value; item.desc = document.getElementById('edit-desc').value; item.imgs = tempEditImages.length > 0 ? tempEditImages : ['https://via.placeholder.com/150/000/fff?text=Sem+Foto']; if (!houseData[rNew]) initializeRoomData({id: rNew}); houseData[rNew][cNew].push(item); closeEditModal(); if (rOld !== rNew) switchRoom(rNew); else { renderLists(rOld, cOld); if(cOld !== cNew) renderLists(rOld, cNew); } updateAllTotals(); saveData(); };
 
-// --- FUNÇÃO PRINCIPAL DE CÁLCULO E BARRAS ---
+// --- CÁLCULO E BARRAS (ATUALIZADO) ---
 function updateAllTotals(cryptoTotal = 0) {
     let currentCryptoVal = cryptoTotal; 
     if(cryptoTotal === 0 && investments.length > 0 && Object.keys(currentCryptoPrices).length > 0) {
