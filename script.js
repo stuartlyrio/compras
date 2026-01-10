@@ -9,10 +9,47 @@ let investments = [];
 let currentRoomId = null;
 let currentCryptoPrices = {};
 
+// Link da imagem padrão (CORRIGIDO PARA EVITAR ERRO 404)
+const NO_IMAGE_URL = 'https://placehold.co/150x150/19191a/FFF?text=Sem+Foto';
+
 // Variáveis Globais
 let appClipboard = null;
 let hoveredItemData = null;
 let tempEditImages = [];
+
+// --- COMPRESSÃO DE IMAGEM (AJUSTADA PARA MELHOR QUALIDADE) ---
+const compressImage = (file) => {
+    return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                
+                // --- AQUI VOCÊ CONTROLA A QUALIDADE ---
+                const MAX_WIDTH = 1024; // Aumentado para HD (era 800)
+                const scaleSize = MAX_WIDTH / img.width;
+                
+                if (img.width > MAX_WIDTH) {
+                    canvas.width = MAX_WIDTH;
+                    canvas.height = img.height * scaleSize;
+                } else {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                }
+
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                
+                // --- TAXA DE COMPRESSÃO (0.8 = 80% de qualidade) ---
+                // Se o Firebase reclamar de tamanho novamente, baixe para 0.6
+                resolve(canvas.toDataURL('image/jpeg', 0.8));
+            }
+        }
+    });
+};
 
 // --- INICIALIZAÇÃO ---
 window.loadUserData = async (uid) => {
@@ -64,8 +101,7 @@ const saveData = async (isManual = false) => {
     }
     const uid = window.currentUser.uid;
     
-    // PREPARAÇÃO DOS DADOS (LIMPEZA)
-    // Isso remove valores 'undefined' que fazem o Firebase travar
+    // Limpeza profunda para evitar erros no Firebase
     const rawData = { rooms, houseData, checklistData, wallet, investments };
     const dataToSave = JSON.parse(JSON.stringify(rawData)); 
     
@@ -73,9 +109,12 @@ const saveData = async (isManual = false) => {
         await window.setDoc(window.doc(window.db, "users", uid), dataToSave, { merge: true }); 
         if(!isManual) showToast("Salvo automaticamente.");
     } catch (e) { 
-        console.error("Erro save:", e); 
-        // Mostra o erro exato na tela para facilitar o diagnóstico
-        alert(`ERRO AO SALVAR!\nCódigo: ${e.code}\nMensagem: ${e.message}`);
+        console.error("Erro save:", e);
+        if(e.code === 'invalid-argument' || e.message.includes('maximum allowed size')) {
+            alert("ERRO DE TAMANHO: O arquivo ficou muito pesado (acima de 1MB).\n\nO Firebase gratuito tem esse limite. Tente apagar algumas fotos antigas ou itens com muitas imagens.");
+        } else {
+            alert(`ERRO AO SALVAR!\nCódigo: ${e.code}\nMensagem: ${e.message}`);
+        }
     }
 };
 
@@ -83,7 +122,6 @@ window.manualSaveAndExit = async () => {
     if(!window.currentUser) { alert("Você não está logado."); return; }
     
     const btn = document.querySelector('.btn-save-exit');
-    const originalText = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
     btn.disabled = true;
 
@@ -128,7 +166,7 @@ window.deleteTransaction = (id) => {
     
     const item = wallet.history[index];
     
-    // Reverte o saldo (apenas visual, pois o histórico é o registro)
+    // Reverte o saldo visualmente (o histórico é o registro real)
     if(item.type === 'add') {
         wallet.balance -= item.val;
     } else if (item.type === 'remove') {
@@ -360,10 +398,40 @@ function setupRoomCheckboxes() { const c = document.getElementById('room-selecti
 window.saveNewList = () => { const name = document.getElementById('modal-list-name').value.trim(); if(!name) return; const listId = name.toLowerCase().replace(/[^a-z0-9]/g, '-'); const target = document.querySelector('input[name="add-list-target"]:checked').value; let targets = []; if(target === 'current') targets.push(currentRoomId); else if(target === 'global') rooms.forEach(r => targets.push(r.id)); else if(target === 'select') document.querySelectorAll('#room-selection-container input:checked').forEach(cb => targets.push(cb.value)); targets.forEach(rid => { if(!houseData[rid]) houseData[rid] = {}; if(!houseData[rid][listId]) houseData[rid][listId] = []; }); document.getElementById('new-list-modal').style.display = 'none'; if(targets.includes(currentRoomId)) switchRoom(currentRoomId); updateAllTotals(); saveData(); };
 window.editListName = (r, old) => { const n = prompt("Novo nome:", old); if(n && n !== old) { const k = n.toLowerCase().trim().replace(/\s+/g, '-'); if(houseData[r][k]) { alert("Nome já existe!"); return; } houseData[r][k] = houseData[r][old]; delete houseData[r][old]; saveData(); switchRoom(r); } };
 
-// ... [Funções Imagem/Drag/Drop/Edit] ...
-window.changeImage = (e, direction, r, c, itemId) => { e.stopPropagation(); const item = houseData[r][c].find(i => i.id === itemId); if (!item) return; const imgs = Array.isArray(item.imgs) ? item.imgs : (item.img ? [item.img] : ['https://via.placeholder.com/150/000/fff?text=Sem+Foto']); const imgEl = document.getElementById(`img-el-${itemId}`); let currentIndex = parseInt(imgEl.dataset.index) || 0; let newIndex = currentIndex + direction; if (newIndex >= imgs.length) newIndex = 0; if (newIndex < 0) newIndex = imgs.length - 1; imgEl.src = imgs[newIndex]; imgEl.dataset.index = newIndex; const countEl = document.getElementById(`img-count-${itemId}`); if(countEl) countEl.innerText = `${newIndex + 1}/${imgs.length}`; };
-function renderLists(r, c) { const ul = document.getElementById(`list-${r}-${c}`); ul.innerHTML=''; if(!houseData[r] || !houseData[r][c]) return; houseData[r][c].forEach(i => { const li = document.createElement('li'); const bought = i.status==='bought'; li.className=`item-card ${bought?'bought':''}`; li.setAttribute('draggable', 'true'); li.ondragstart = (e) => dragStart(e, r, c, i.id); li.onclick = () => openEditModal(r, c, i.id); li.onmouseenter = () => { hoveredItemData = { r, c, item: i }; }; li.onmouseleave = () => { hoveredItemData = null; }; const images = Array.isArray(i.imgs) && i.imgs.length > 0 ? i.imgs : (i.img ? [i.img] : ['https://via.placeholder.com/150/000/fff?text=Sem+Foto']); const showArrows = images.length > 1; li.innerHTML=`<div class="carousel-wrapper">${showArrows ? `<button class="carousel-btn prev-btn" onclick="changeImage(event, -1, '${r}', '${c}', ${i.id})">❮</button>` : ''}<img src="${images[0]}" class="item-img" id="img-el-${i.id}" data-index="0">${showArrows ? `<button class="carousel-btn next-btn" onclick="changeImage(event, 1, '${r}', '${c}', ${i.id})">❯</button>` : ''}${showArrows ? `<span class="img-counter" id="img-count-${i.id}">1/${images.length}</span>` : ''}</div><div class="item-info"><span class="item-name">${i.name}</span><span class="item-price">${formatCurrency(i.price)}</span>${i.desc?`<span class="item-desc">${i.desc}</span>`:''} ${i.link?`<a href="${i.link}" target="_blank" class="item-link" onclick="event.stopPropagation()">Link <i class="fas fa-external-link-alt"></i></a>`:''}<label class="status-switch" onclick="event.stopPropagation()"><input type="checkbox" ${bought?'checked':''} onchange="toggleStatus('${r}','${c}',${i.id})"><span class="slider"><span class="status-label label-comprado">COMPRADO</span><span class="status-label label-pendente">PENDENTE</span></span></label></div><button class="delete-btn" onclick="event.stopPropagation(); removeItem('${r}','${c}',${i.id})"><i class="fas fa-trash"></i></button>`; ul.appendChild(li); }); }
-window.addItem = async (r, c) => { const name = document.getElementById(`in-${r}-${c}-name`).value.trim(); const price = parseFloat(document.getElementById(`in-${r}-${c}-price`).value); const desc = document.getElementById(`in-${r}-${c}-desc`).value; const link = document.getElementById(`in-${r}-${c}-link`).value; const fileIn = document.getElementById(`in-${r}-${c}-img`); const files = fileIn.files; const remote = fileIn.getAttribute('data-remote'); if(!name || isNaN(price)) { alert("Nome e Preço são obrigatórios!"); return; } const processFiles = async () => { if (files.length > 0) { const promises = Array.from(files).map(file => { return new Promise((resolve) => { const reader = new FileReader(); reader.onload = (e) => resolve(e.target.result); reader.readAsDataURL(file); }); }); return Promise.all(promises); } else if (remote) { return [remote]; } else { return ['https://via.placeholder.com/150/000/fff?text=Sem+Foto']; } }; const finalImages = await processFiles(); houseData[r][c].push({ id: Date.now(), name, price, desc, link, imgs: finalImages, status: 'pending' }); document.getElementById(`in-${r}-${c}-name`).value=''; document.getElementById(`in-${r}-${c}-price`).value=''; document.getElementById(`in-${r}-${c}-desc`).value=''; document.getElementById(`in-${r}-${c}-link`).value=''; fileIn.value=''; fileIn.removeAttribute('data-remote'); document.querySelector(`label[for="in-${r}-${c}-img"]`).innerHTML = '<i class="fas fa-images"></i> Fotos'; renderLists(r, c); updateAllTotals(); saveData(); };
+window.changeImage = (e, direction, r, c, itemId) => { e.stopPropagation(); const item = houseData[r][c].find(i => i.id === itemId); if (!item) return; const imgs = Array.isArray(item.imgs) ? item.imgs : (item.img ? [item.img] : [NO_IMAGE_URL]); const imgEl = document.getElementById(`img-el-${itemId}`); let currentIndex = parseInt(imgEl.dataset.index) || 0; let newIndex = currentIndex + direction; if (newIndex >= imgs.length) newIndex = 0; if (newIndex < 0) newIndex = imgs.length - 1; imgEl.src = imgs[newIndex]; imgEl.dataset.index = newIndex; const countEl = document.getElementById(`img-count-${itemId}`); if(countEl) countEl.innerText = `${newIndex + 1}/${imgs.length}`; };
+function renderLists(r, c) { const ul = document.getElementById(`list-${r}-${c}`); ul.innerHTML=''; if(!houseData[r] || !houseData[r][c]) return; houseData[r][c].forEach(i => { const li = document.createElement('li'); const bought = i.status==='bought'; li.className=`item-card ${bought?'bought':''}`; li.setAttribute('draggable', 'true'); li.ondragstart = (e) => dragStart(e, r, c, i.id); li.onclick = () => openEditModal(r, c, i.id); li.onmouseenter = () => { hoveredItemData = { r, c, item: i }; }; li.onmouseleave = () => { hoveredItemData = null; }; const images = Array.isArray(i.imgs) && i.imgs.length > 0 ? i.imgs : (i.img ? [i.img] : [NO_IMAGE_URL]); const showArrows = images.length > 1; li.innerHTML=`<div class="carousel-wrapper">${showArrows ? `<button class="carousel-btn prev-btn" onclick="changeImage(event, -1, '${r}', '${c}', ${i.id})">❮</button>` : ''}<img src="${images[0]}" class="item-img" id="img-el-${i.id}" data-index="0">${showArrows ? `<button class="carousel-btn next-btn" onclick="changeImage(event, 1, '${r}', '${c}', ${i.id})">❯</button>` : ''}${showArrows ? `<span class="img-counter" id="img-count-${i.id}">1/${images.length}</span>` : ''}</div><div class="item-info"><span class="item-name">${i.name}</span><span class="item-price">${formatCurrency(i.price)}</span>${i.desc?`<span class="item-desc">${i.desc}</span>`:''} ${i.link?`<a href="${i.link}" target="_blank" class="item-link" onclick="event.stopPropagation()">Link <i class="fas fa-external-link-alt"></i></a>`:''}<label class="status-switch" onclick="event.stopPropagation()"><input type="checkbox" ${bought?'checked':''} onchange="toggleStatus('${r}','${c}',${i.id})"><span class="slider"><span class="status-label label-comprado">COMPRADO</span><span class="status-label label-pendente">PENDENTE</span></span></label></div><button class="delete-btn" onclick="event.stopPropagation(); removeItem('${r}','${c}',${i.id})"><i class="fas fa-trash"></i></button>`; ul.appendChild(li); }); }
+
+// --- ADD ITEM COM COMPRESSÃO (MODIFICADO PARA QUALIDADE 80%) ---
+window.addItem = async (r, c) => { 
+    const name = document.getElementById(`in-${r}-${c}-name`).value.trim(); 
+    const price = parseFloat(document.getElementById(`in-${r}-${c}-price`).value); 
+    const desc = document.getElementById(`in-${r}-${c}-desc`).value; 
+    const link = document.getElementById(`in-${r}-${c}-link`).value; 
+    const fileIn = document.getElementById(`in-${r}-${c}-img`); 
+    const files = fileIn.files; 
+    const remote = fileIn.getAttribute('data-remote'); 
+    
+    if(!name || isNaN(price)) { alert("Nome e Preço são obrigatórios!"); return; } 
+    
+    const processFiles = async () => { 
+        if (files.length > 0) { 
+            const promises = Array.from(files).map(file => compressImage(file)); 
+            return Promise.all(promises); 
+        } else if (remote) { return [remote]; } 
+        else { return [NO_IMAGE_URL]; } 
+    }; 
+    
+    const finalImages = await processFiles(); 
+    houseData[r][c].push({ id: Date.now(), name, price, desc, link, imgs: finalImages, status: 'pending' }); 
+    document.getElementById(`in-${r}-${c}-name`).value=''; 
+    document.getElementById(`in-${r}-${c}-price`).value=''; 
+    document.getElementById(`in-${r}-${c}-desc`).value=''; 
+    document.getElementById(`in-${r}-${c}-link`).value=''; 
+    fileIn.value=''; fileIn.removeAttribute('data-remote'); 
+    document.querySelector(`label[for="in-${r}-${c}-img"]`).innerHTML = '<i class="fas fa-images"></i> Fotos'; 
+    renderLists(r, c); updateAllTotals(); saveData(); 
+};
+
 window.autoFillFromLink = async (r, c) => { const link = document.getElementById(`in-${r}-${c}-link`).value; const icon = document.getElementById(`icon-${r}-${c}`); if(!link) return; icon.className="fas fa-spinner fa-spin"; try { const res = await fetch(`https://api.microlink.io?url=${encodeURIComponent(link)}&palette=true`); const d = await res.json(); if(d.status==='success') { const m = d.data; if(m.title) document.getElementById(`in-${r}-${c}-name`).value = m.title.substring(0,40); if(m.description) document.getElementById(`in-${r}-${c}-desc`).value = m.description; if(m.image?.url) { const imgIn = document.getElementById(`in-${r}-${c}-img`); imgIn.setAttribute('data-remote', m.image.url); document.querySelector(`label[for="in-${r}-${c}-img"]`).innerHTML = '<i class="fas fa-check"></i> Foto IA Encontrada'; } } } catch(e) { console.error(e); } finally { icon.className="fas fa-magic"; } };
 window.removeItem = (r,c,id) => { houseData[r][c]=houseData[r][c].filter(i=>i.id!==id); renderLists(r,c); updateAllTotals(); saveData(); };
 window.toggleStatus = (r,c,id) => { const i=houseData[r][c].find(x=>x.id===id); if(i) i.status=(i.status==='bought'?'pending':'bought'); renderLists(r,c); updateAllTotals(); saveData(); };
@@ -373,14 +441,26 @@ window.leaveDrop = (e) => { const list = e.target.closest('ul'); if(list) list.c
 window.dropItem = (e, targetR, targetC) => { e.preventDefault(); const list = e.target.closest('ul'); if(list) list.classList.remove('drag-over'); try { const data = JSON.parse(e.dataTransfer.getData("text/plain")); const { r: originR, c: originC, id: itemId } = data; if (originR === targetR && originC === targetC) return; const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId); if (itemIndex === -1) return; const item = houseData[originR][originC][itemIndex]; houseData[originR][originC].splice(itemIndex, 1); houseData[targetR][targetC].push(item); renderLists(originR, originC); renderLists(targetR, targetC); updateAllTotals(); saveData(); } catch (err) { console.error("Drop error:", err); } };
 window.dropOnRoom = (e, targetRoomId) => { e.preventDefault(); const btn = document.querySelector(`button[data-target="${targetRoomId}"]`); if(btn) btn.classList.remove('drag-over-tab'); try { const data = JSON.parse(e.dataTransfer.getData("text/plain")); const { r: originR, c: originC, id: itemId } = data; if (originR === targetRoomId) return; const itemIndex = houseData[originR][originC].findIndex(i => i.id === itemId); if (itemIndex === -1) return; const item = houseData[originR][originC][itemIndex]; houseData[originR][originC].splice(itemIndex, 1); const targetCat = houseData[targetRoomId][originC] ? originC : Object.keys(houseData[targetRoomId])[0]; houseData[targetRoomId][targetCat].push(item); renderLists(originR, originC); showToast(`Item movido.`); updateAllTotals(); saveData(); } catch (err) { console.error("Room Drop error:", err); } };
 function setupKeyboardShortcuts() { document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'c') { if (hoveredItemData) { appClipboard = JSON.parse(JSON.stringify(hoveredItemData)); showToast(`Copiado: ${appClipboard.item.name}`); } } if ((e.ctrlKey || e.metaKey) && e.key === 'v') { if (appClipboard && currentRoomId) { const newItem = { ...appClipboard.item, id: Date.now(), status: 'pending', name: appClipboard.item.name + ' (Cópia)' }; const targetCat = houseData[currentRoomId][appClipboard.c] ? appClipboard.c : Object.keys(houseData[currentRoomId])[0]; houseData[currentRoomId][targetCat].push(newItem); renderLists(currentRoomId, targetCat); updateAllTotals(); saveData(); showToast(`Colado.`); } } }); }
-window.openEditModal = (r, c, id) => { const item = houseData[r][c].find(i => i.id === id); if (!item) return; tempEditImages = Array.isArray(item.imgs) && item.imgs.length > 0 ? [...item.imgs] : (item.img ? [item.img] : []); document.getElementById('edit-r-origin').value = r; document.getElementById('edit-c-origin').value = c; document.getElementById('edit-id').value = id; document.getElementById('edit-name').value = item.name; document.getElementById('edit-price').value = item.price; document.getElementById('edit-link').value = item.link || ''; document.getElementById('edit-desc').value = item.desc || ''; renderEditGallery(); const roomSelect = document.getElementById('edit-move-room'); roomSelect.innerHTML = ''; rooms.forEach(room => { const opt = document.createElement('option'); opt.value = room.id; opt.text = room.name; if(room.id === r) opt.selected = true; roomSelect.appendChild(opt); }); const catSelect = document.getElementById('edit-move-cat'); catSelect.innerHTML = ''; Object.keys(houseData[r]).forEach(cat => { const opt = document.createElement('option'); opt.value = cat; opt.text = capitalize(cat); if(cat === c) opt.selected = true; catSelect.appendChild(opt); }); roomSelect.onchange = (e) => { const selectedRoom = e.target.value; catSelect.innerHTML = ''; Object.keys(houseData[selectedRoom]).forEach(cat => { const opt = document.createElement('option'); opt.value = cat; opt.text = capitalize(cat); catSelect.appendChild(opt); }); }; document.getElementById('edit-modal').style.display = 'flex'; };
-window.renderEditGallery = () => { const container = document.getElementById('edit-gallery-container'); container.innerHTML = ''; tempEditImages.forEach((img, idx) => { const wrapper = document.createElement('div'); wrapper.className = 'edit-thumb-wrapper'; wrapper.innerHTML = `<img src="${img}" class="edit-thumb"><button class="edit-remove-img" onclick="removeEditImage(${idx})">&times;</button>`; container.appendChild(wrapper); }); };
-window.removeEditImage = (idx) => { tempEditImages.splice(idx, 1); renderEditGallery(); };
-function setupEditModalImageInput() { const input = document.getElementById('edit-add-img-input'); input.addEventListener('change', async (e) => { const files = e.target.files; if(files.length > 0) { const promises = Array.from(files).map(file => { return new Promise((resolve) => { const reader = new FileReader(); reader.onload = (e) => resolve(e.target.result); reader.readAsDataURL(file); }); }); const newImages = await Promise.all(promises); tempEditImages = [...tempEditImages, ...newImages]; renderEditGallery(); } input.value = ''; }); }
-window.closeEditModal = () => { document.getElementById('edit-modal').style.display = 'none'; };
-window.saveEditItem = () => { const rOld = document.getElementById('edit-r-origin').value; const cOld = document.getElementById('edit-c-origin').value; const id = parseInt(document.getElementById('edit-id').value); const rNew = document.getElementById('edit-move-room').value; const cNew = document.getElementById('edit-move-cat').value; const itemIndex = houseData[rOld][cOld].findIndex(i => i.id === id); if (itemIndex === -1) return; const item = houseData[rOld][cOld][itemIndex]; houseData[rOld][cOld].splice(itemIndex, 1); item.name = document.getElementById('edit-name').value; item.price = parseFloat(document.getElementById('edit-price').value) || 0; item.link = document.getElementById('edit-link').value; item.desc = document.getElementById('edit-desc').value; item.imgs = tempEditImages.length > 0 ? tempEditImages : ['https://via.placeholder.com/150/000/fff?text=Sem+Foto']; if (!houseData[rNew]) initializeRoomData({id: rNew}); houseData[rNew][cNew].push(item); closeEditModal(); if (rOld !== rNew) switchRoom(rNew); else { renderLists(rOld, cOld); if(cOld !== cNew) renderLists(rOld, cNew); } updateAllTotals(); saveData(); };
 
-// --- CÁLCULO E BARRAS (ATUALIZADO) ---
+// --- SETUP IMAGEM MODAL COM COMPRESSÃO (MODIFICADO) ---
+function setupEditModalImageInput() { 
+    const input = document.getElementById('edit-add-img-input'); 
+    input.addEventListener('change', async (e) => { 
+        const files = e.target.files; 
+        if(files.length > 0) { 
+            const promises = Array.from(files).map(file => compressImage(file)); 
+            const newImages = await Promise.all(promises); 
+            tempEditImages = [...tempEditImages, ...newImages]; 
+            renderEditGallery(); 
+        } 
+        input.value = ''; 
+    }); 
+}
+
+window.closeEditModal = () => { document.getElementById('edit-modal').style.display = 'none'; };
+window.saveEditItem = () => { const rOld = document.getElementById('edit-r-origin').value; const cOld = document.getElementById('edit-c-origin').value; const id = parseInt(document.getElementById('edit-id').value); const rNew = document.getElementById('edit-move-room').value; const cNew = document.getElementById('edit-move-cat').value; const itemIndex = houseData[rOld][cOld].findIndex(i => i.id === id); if (itemIndex === -1) return; const item = houseData[rOld][cOld][itemIndex]; houseData[rOld][cOld].splice(itemIndex, 1); item.name = document.getElementById('edit-name').value; item.price = parseFloat(document.getElementById('edit-price').value) || 0; item.link = document.getElementById('edit-link').value; item.desc = document.getElementById('edit-desc').value; item.imgs = tempEditImages.length > 0 ? tempEditImages : [NO_IMAGE_URL]; if (!houseData[rNew]) initializeRoomData({id: rNew}); houseData[rNew][cNew].push(item); closeEditModal(); if (rOld !== rNew) switchRoom(rNew); else { renderLists(rOld, cOld); if(cOld !== cNew) renderLists(rOld, cNew); } updateAllTotals(); saveData(); };
+
+// --- CÁLCULO E BARRAS ---
 function updateAllTotals(cryptoTotal = 0) {
     let currentCryptoVal = cryptoTotal; 
     if(cryptoTotal === 0 && investments.length > 0 && Object.keys(currentCryptoPrices).length > 0) {
@@ -430,9 +510,8 @@ function updateAllTotals(cryptoTotal = 0) {
     });
 
     const walletNum = parseFloat(wallet.balance) || 0;
-    const totalMoney = walletNum + currentCryptoVal; // SOMA DINHEIRO + CRIPTO
+    const totalMoney = walletNum + currentCryptoVal; 
 
-    // Atualiza Barras
     updateBar('bar-level-1', 'text-level-1', costEssencial > 0 ? (totalMoney/costEssencial)*100 : (totalMoney>0?100:0));
     updateBar('bar-level-2', 'text-level-2', costComum > 0 ? (totalMoney/costComum)*100 : (totalMoney>0?100:0));
     updateBar('bar-level-3', 'text-level-3', costDesejado > 0 ? (totalMoney/costDesejado)*100 : (totalMoney>0?100:0));
